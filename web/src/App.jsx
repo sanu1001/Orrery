@@ -7,6 +7,7 @@ import { buildIndex } from './player/prepass.js';
 import { PlayerStore } from './player/store.js';
 import { usePlayerVersion } from './player/usePlayer.js';
 import { useTraceFile, downloadTrace } from './ui/useTraceFile.js';
+import { matchFrom } from './player/breakpoints.js';
 import { addrKey } from './lib/value.js';
 
 import TopBar from './ui/TopBar.jsx';
@@ -235,6 +236,31 @@ export default function App() {
       : [...bs, { ...a, op: 'writes' }]);
   }, [focus]);
 
+  /**
+   * Which breakpoints can ever fire.
+   *
+   * A breakpoint on an address nothing writes is legal and useless: row 0 of a
+   * DP table is the base case, initialised to `fill` and never written, so
+   * `dp[0][1] writes` has nothing to match. Continue then correctly does
+   * nothing -- and a control that silently does nothing is indistinguishable
+   * from a broken one, which is the same mistake this rail already made once.
+   * Computed here so the rail and the transport can both say so.
+   *
+   * Keyed on the step LIST rather than the current step: whether a write exists
+   * anywhere is a property of the trace, and recomputing it per step would scan
+   * every event on every keypress.
+   */
+  const liveBps = useMemo(() => {
+    const out = new Set();
+    if (!store) return out;
+    for (const b of breakpoints) {
+      if (matchFrom(store.trace.events, store.steps, [b], 0, 1) >= 0) {
+        out.add(addrKey(b.s, b.at));
+      }
+    }
+    return out;
+  }, [store, breakpoints, store?.level]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const dragging = useTraceFile(openFile);
 
   const save = useCallback(() => {
@@ -348,7 +374,7 @@ export default function App() {
           <ComplexityPane algo={trace?.meta?.algo} data={growth} />
           <WatchPane store={store} version={version}
                      watches={watches} breakpoints={breakpoints}
-                     target={addrOf(focus)}
+                     target={addrOf(focus)} liveBps={liveBps}
                      onWatch={toggleWatch} onBreak={toggleBreakpoint}
                      onSeek={(step) => store?.seek(step)}
                      onRemove={(w) => setWatches((ws) =>
@@ -358,7 +384,8 @@ export default function App() {
         </aside>
       </div>
 
-      <Transport store={store} version={version} hasBreakpoints={breakpoints.length > 0} />
+      <Transport store={store} version={version}
+                 hasBreakpoints={breakpoints.length > 0} canContinue={liveBps.size > 0} />
       {showKeys && <Shortcuts onClose={() => setShowKeys(false)} />}
       {dragging && <DropOverlay />}
     </div>

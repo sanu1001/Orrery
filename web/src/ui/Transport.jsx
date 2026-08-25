@@ -8,7 +8,7 @@
  * have to be throttled and would feel laggy, which is exactly the property the
  * architecture promised would be instant.
  */
-export default function Transport({ store, version, hasBreakpoints }) {
+export default function Transport({ store, version, hasBreakpoints, canContinue }) {
   if (!store) return <div className="transport" />;
   const at = store.step;
   const n = store.stepCount;
@@ -52,11 +52,13 @@ export default function Transport({ store, version, hasBreakpoints }) {
           does this next happen", not "watch it happen". */}
       {hasBreakpoints && (
         <div className="seg" role="group" aria-label="breakpoints">
-          <button onClick={() => store.continueTo(-1)}
-                  title="run back to the previous breakpoint (Shift + c)"
+          <button onClick={() => store.continueTo(-1)} disabled={!canContinue}
+                  title={canContinue ? 'run back to the previous breakpoint (Shift + c)'
+                                     : 'no breakpoint can fire in this trace'}
                   aria-label="previous breakpoint">◀◀</button>
-          <button onClick={() => store.continueTo(1)}
-                  title="run on to the next breakpoint (c)"
+          <button onClick={() => store.continueTo(1)} disabled={!canContinue}
+                  title={canContinue ? 'run on to the next breakpoint (c)'
+                                     : 'no breakpoint can fire in this trace'}
                   aria-label="next breakpoint">▶▶</button>
         </div>
       )}

@@ -17,7 +17,7 @@ import { history } from '../player/breakpoints.js';
  * watchable without being touched. That is I2 holding by construction rather
  * than by discipline.
  */
-export default function WatchPane({ store, version, watches, breakpoints, target,
+export default function WatchPane({ store, version, watches, breakpoints, target, liveBps,
                                     onSeek, onRemove, onRemoveBp, onWatch, onBreak }) {
   // Always rendered once a trace is loaded, even with nothing selected. A rail
   // that only appears after you have already used it cannot teach you that it
@@ -76,9 +76,13 @@ export default function WatchPane({ store, version, watches, breakpoints, target
           </div>
           <div className="watches">
             {breakpoints.map((b) => (
-              <div key={addrKey(b.s, b.at) + b.op} className="bp">
+              <div key={addrKey(b.s, b.at) + b.op} className="bp"
+                   data-dead={liveBps && !liveBps.has(addrKey(b.s, b.at)) ? 1 : 0}>
                 <span className="mono">{addrLabel(b.s, b.at)}</span>
                 <span className="op">{b.op}{b.value !== undefined ? ` ${fmtValue(b.value)}` : ''}</span>
+                {liveBps && !liveBps.has(addrKey(b.s, b.at)) && (
+                  <span className="dead" title="nothing in this trace writes that address">never fires</span>
+                )}
                 <button className="x" onClick={() => onRemoveBp(b)}
                         aria-label={`remove breakpoint on ${addrLabel(b.s, b.at)}`}>×</button>
               </div>

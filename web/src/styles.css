@@ -409,6 +409,10 @@ input, select {
   border-left: 3px solid var(--pruned);
 }
 .bp .op { color: var(--text-mute); }
+/* A breakpoint that can never match keeps its place in the rail and says why.
+   Removing it would hide the user's own intent; leaving it silent was the bug. */
+.bp[data-dead="1"] { border-left-color: var(--inert); }
+.bp .dead { color: var(--text-mute); font-size: var(--t-xs); font-style: italic; }
 .bp .x, .watch .x { margin-left: auto; color: var(--text-mute); padding: 0 4px; }
 .bp .x:hover, .watch .x:hover { color: var(--text); background: none; }
 
