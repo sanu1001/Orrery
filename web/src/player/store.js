@@ -19,6 +19,7 @@
 
 import { State } from './state.js';
 import { buildSteps, stepIndexOf } from './steps.js';
+import { matchFrom, hits } from './breakpoints.js';
 import { buildIndex } from './prepass.js';
 
 export class PlayerStore {
@@ -42,6 +43,40 @@ export class PlayerStore {
     this._flashTimer = null;
     this._sps = 2; // steps per second
     this._animate = true;
+    /** @type {import('./breakpoints.js').Breakpoint[]} */
+    this._bps = [];
+  }
+
+  get breakpoints() { return this._bps; }
+
+  /**
+   * Breakpoints live on the player rather than in React state because the play
+   * LOOP has to consult them, and the loop runs on a timer outside any render.
+   * The list itself is owned by App and pushed down here; this is a cache of it,
+   * not a second source of truth.
+   * @param {import('./breakpoints.js').Breakpoint[]} list
+   */
+  setBreakpoints(list) {
+    this._bps = list ?? [];
+    this._emit();
+  }
+
+  /**
+   * Run to the next breakpoint, forward or backward, and stop there.
+   *
+   * Instant rather than animated: this is "where does this next happen", not
+   * "watch it happen". Reuses seek(), so the move is incremental from the
+   * current position and the accumulated `changed` set still flashes on arrival.
+   *
+   * @param {number} dir +1 forward, -1 backward
+   * @returns {boolean} whether a breakpoint was found
+   */
+  continueTo(dir = 1) {
+    const target = matchFrom(this.trace.events, this.steps, this._bps, this._step, dir);
+    if (target < 0) return false;
+    this.pause();
+    this.seek(target);
+    return true;
   }
 
   // --- reads: safe during render -------------------------------------------
@@ -173,10 +208,24 @@ export class PlayerStore {
     if (this._step >= this.steps.length) this.seek(0);
     const tick = () => {
       if (!this.next()) return;
+      // Checked AFTER the step is applied, so playback stops on the step where
+      // the write is visible rather than one short of it -- the same position
+      // continueTo() lands on, so the two ways of reaching a breakpoint agree.
+      if (this._bps.length > 0 && this._stepHits(this._step - 1)) { this.pause(); return; }
       this._timer = setTimeout(tick, 1000 / this._sps);
     };
     this._timer = setTimeout(tick, 0);
     this._emit();
+  }
+
+  /** Does any breakpoint fire inside the events of steps[j]? */
+  _stepHits(j) {
+    if (j < 0 || j >= this.steps.length) return false;
+    const st = this.steps[j];
+    for (let i = st.e0; i < st.e1; i++) {
+      for (const bp of this._bps) if (hits(bp, this.trace.events[i])) return true;
+    }
+    return false;
   }
 
   pause() {

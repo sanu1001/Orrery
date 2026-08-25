@@ -8,7 +8,8 @@ import { useEffect } from 'react';
  * they do not name it.
  *
  * @param {import('../player/store.js').PlayerStore|null} store
- * @param {{onHelp?: () => void, onFit?: () => void}} handlers
+ * @param {{onHelp?: () => void, onFit?: () => void, onWatch?: () => void,
+ *          onBreak?: () => void, onContinue?: (dir: number) => void}} handlers
  */
 export function useKeys(store, handlers = {}) {
   useEffect(() => {
@@ -20,6 +21,17 @@ export function useKeys(store, handlers = {}) {
       if (e.key === '?') { handlers.onHelp?.(); e.preventDefault(); return; }
       if (e.key === 'Escape') { handlers.onFit?.(); return; }
       if (!store) return;
+
+      // The debugger keys act on the address under the cursor or pinned, which
+      // is what makes watches and breakpoints reachable without a mouse -- the
+      // panes already publish that address through the focus protocol.
+      if (e.key === 'w') { handlers.onWatch?.(); e.preventDefault(); return; }
+      if (e.key === 'b') { handlers.onBreak?.(); e.preventDefault(); return; }
+      if (e.key === 'c' || e.key === 'C') {
+        handlers.onContinue?.(e.shiftKey ? -1 : 1);
+        e.preventDefault();
+        return;
+      }
 
       switch (e.key) {
         case ' ':          store.toggle(); break;

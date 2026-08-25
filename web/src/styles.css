@@ -335,6 +335,44 @@ input, select {
 }
 .prologue[aria-pressed="true"] { color: var(--text); border-color: var(--border-strong); }
 
+/* ---------------------------------------------------------- watches ------ */
+
+.watches { padding: 0 var(--s4) var(--s3); display: flex; flex-direction: column; gap: var(--s2); }
+
+.watch { border: 1px solid var(--border); border-radius: var(--r-chip); overflow: hidden; }
+.watch-head {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s1) var(--s2); background: var(--surface-raise);
+  font-family: var(--font-mono); font-size: var(--t-sm);
+}
+.watch-head .now { margin-left: auto; color: var(--write); }
+.watch-hist { display: flex; flex-direction: column; max-height: 132px; overflow: auto; }
+
+.hentry {
+  display: flex; gap: var(--s2); align-items: baseline;
+  font-family: var(--font-mono); font-size: var(--t-xs);
+  padding: 2px var(--s2); text-align: left; border-radius: 0;
+}
+.hentry .s { color: var(--text-mute); width: 4ch; text-align: right; flex: none; }
+.hentry .v { color: var(--text-dim); }
+/* The entry you are standing on. --cursor means "current position" everywhere
+   else in this app, so it means that here too. */
+.hentry[data-now="1"] { background: color-mix(in srgb, var(--cursor) 16%, transparent); }
+.hentry[data-now="1"] .v { color: var(--text); }
+
+.bp {
+  display: flex; align-items: center; gap: var(--s2);
+  font-family: var(--font-mono); font-size: var(--t-sm);
+  border: 1px solid var(--border); border-radius: var(--r-chip);
+  padding: var(--s1) var(--s2);
+  /* Rose is "this branch failed" elsewhere; on a breakpoint it is the same
+     idea of a deliberate stop, and it is the one accent already meaning halt. */
+  border-left: 3px solid var(--pruned);
+}
+.bp .op { color: var(--text-mute); }
+.bp .x, .watch .x { margin-left: auto; color: var(--text-mute); padding: 0 4px; }
+.bp .x:hover, .watch .x:hover { color: var(--text); background: none; }
+
 /* -------------------------------------------------------------- tree ----- */
 
 /* The palette is the SAME palette, and that is the point: someone who learned

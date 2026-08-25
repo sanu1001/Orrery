@@ -8,7 +8,7 @@
  * have to be throttled and would feel laggy, which is exactly the property the
  * architecture promised would be instant.
  */
-export default function Transport({ store, version }) {
+export default function Transport({ store, version, hasBreakpoints }) {
   if (!store) return <div className="transport" />;
   const at = store.step;
   const n = store.stepCount;
@@ -44,6 +44,22 @@ export default function Transport({ store, version }) {
                   onClick={() => store.setSpeed(s)}>{s}×</button>
         ))}
       </div>
+
+      {/* Continue / reverse-continue. Shown only once a breakpoint exists, the
+          same way the prologue toggle appears only when there is a prologue --
+          a control that can do nothing is worse than no control. Both are
+          instant seeks rather than animated playback: the question is "where
+          does this next happen", not "watch it happen". */}
+      {hasBreakpoints && (
+        <div className="seg" role="group" aria-label="breakpoints">
+          <button onClick={() => store.continueTo(-1)}
+                  title="run back to the previous breakpoint (Shift + c)"
+                  aria-label="previous breakpoint">◀◀</button>
+          <button onClick={() => store.continueTo(1)}
+                  title="run on to the next breakpoint (c)"
+                  aria-label="next breakpoint">▶▶</button>
+        </div>
+      )}
 
       {/* Some traces open past a CONSTRUCTION PROLOGUE -- the writes that build
           the input tree or list before the algorithm starts. Watching it is

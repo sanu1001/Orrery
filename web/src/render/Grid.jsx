@@ -91,7 +91,12 @@ const GCell = memo(function GCell({ r, c, v, glyph, filled, w, rd, trail, settle
            tabIndex={0}
            aria-label={`${label}, ${fmtValue(v)}`}
            onMouseEnter={() => onFocus?.({ kind: 'cell', s, at })}
-           onMouseLeave={() => onFocus?.(null)}>
+           onMouseLeave={() => onFocus?.(null)}
+           // Keyboard focus publishes the same address as hover. The cell was
+           // already tabbable; without this, tabbing to it highlighted nothing
+           // and the watch/breakpoint keys had no address to act on.
+           onFocus={() => onFocus?.({ kind: 'cell', s, at })}
+           onBlur={() => onFocus?.(null)}>
         {text}
       </div>
     </td>

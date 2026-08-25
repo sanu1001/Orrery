@@ -242,7 +242,11 @@ are level 0 (they *are* the algorithm — filtering them leaves nothing).
    `TRACE_FORMAT.md` §4.2.
 5. Work the acceptance checklist before calling it done.
 
-Tree and linked-list reuse `layout/tidyTree.js` completely unchanged.
+The tree renderer reuses `layout/tidyTree.js` completely unchanged. The linked
+list does NOT, and `RENDERERS/LINKED_LIST.md` §1 says why: a list is a tree of
+branching factor one, so tidy-tree layout runs happily and produces a vertical
+column, which is wrong. Lists read left to right. B2 is a separate ~150-line
+serpentine renderer.
 
 ---
 
@@ -262,9 +266,14 @@ Tree and linked-list reuse `layout/tidyTree.js` completely unchanged.
 ## Current state
 
 Stage A is built and green, plus C6 (the trace as a downloadable/droppable
-file) and B1 (the tree renderer). 14 algorithms, 5 renderer families plus the
-call stack pane, CLI including a terminal player, Go↔JS conformance over 651
-step hashes.
+file), B1 (the tree renderer) and C1/C2 (breakpoints and watches). 14
+algorithms, 5 renderer families plus the call stack pane, CLI including a
+terminal player, Go↔JS conformance over 651 step hashes.
+
+`player/breakpoints.js` is worth reading once: matching a breakpoint is a scan
+over EVENTS, never a replay, because every `set` carries its full `to` rather
+than a delta. That is why searching backward costs exactly what searching
+forward costs, and it is the reversibility invariant paying for itself twice.
 
 Not built: `cmd/orreryd` (spec in `../workshop/BACKEND.md`), the linked-list and
 graph renderers (specs in `../workshop/RENDERERS/`), and Stage B (spec in

@@ -7,6 +7,7 @@ import { buildIndex } from './player/prepass.js';
 import { PlayerStore } from './player/store.js';
 import { usePlayerVersion } from './player/usePlayer.js';
 import { useTraceFile, downloadTrace } from './ui/useTraceFile.js';
+import { addrKey } from './lib/value.js';
 
 import TopBar from './ui/TopBar.jsx';
 import Transport from './ui/Transport.jsx';
@@ -14,6 +15,7 @@ import ViewGrid from './ui/ViewGrid.jsx';
 import CodePane from './ui/CodePane.jsx';
 import ExplainPane from './ui/ExplainPane.jsx';
 import CallStackPane from './ui/CallStackPane.jsx';
+import WatchPane from './ui/WatchPane.jsx';
 import Banner from './ui/Banner.jsx';
 import EmptyState from './ui/EmptyState.jsx';
 import Shortcuts from './ui/Shortcuts.jsx';
@@ -39,6 +41,12 @@ export default function App() {
   const [trace, setTrace] = useState(/** @type {any} */(null));
   const [focus, setFocus] = useState(/** @type {any} */(null));
   const [pinned, setPinned] = useState(false);
+  // Watches and breakpoints are small, immutable and change at human speed, so
+  // they live in ordinary React state alongside focus -- the "view store" of
+  // FRONTEND.md 3, not the player store. The player gets a copy of the
+  // breakpoints only because its play LOOP has to consult them off-render.
+  const [watches, setWatches] = useState(/** @type {any[]} */([]));
+  const [breakpoints, setBreakpoints] = useState(/** @type {any[]} */([]));
   const [theme, setTheme] = useState('dark');
   const [showKeys, setShowKeys] = useState(false);
   const [offline, setOffline] = useState(false);
@@ -86,6 +94,15 @@ export default function App() {
     } else if (s.startStep > 0) {
       s.seek(s.startStep);
     }
+    // A debugger session belongs to a run -- but reloading the same algorithm
+    // with a different input should not throw your watches away. Keeping the
+    // ones whose STRUCTURE still exists does both: dp[2][2] survives a new LCS
+    // input, and does not survive a switch to bubble sort, where it would sit
+    // in the rail unable to ever fire.
+    const survives = (list) => list.filter((x) => index.structUnion.has(x.s));
+    setWatches(survives);
+    setBreakpoints(survives);
+
     rawText.current = text;
     setTrace(raw);
     setStore(s);
@@ -173,6 +190,40 @@ export default function App() {
     }
   }, [adopt]);
 
+  // The player's play loop runs on a timer, outside any render, so it needs its
+  // own handle on the list. App stays the owner; this is a push, not a second
+  // source of truth.
+  useEffect(() => { store?.setBreakpoints(breakpoints); }, [store, breakpoints]);
+
+  const addrOf = (f) => (f && f.kind === 'cell' ? { s: f.s, at: f.at ?? [] } : null);
+
+  /** Watch, or un-watch, the address currently focused or pinned. */
+  const toggleWatch = useCallback(() => {
+    const a = addrOf(focus);
+    if (!a) return;
+    const key = addrKey(a.s, a.at);
+    setWatches((ws) => ws.some((w) => addrKey(w.s, w.at) === key)
+      ? ws.filter((w) => addrKey(w.s, w.at) !== key)
+      : [...ws, a]);
+  }, [focus]);
+
+  /**
+   * Breakpoint the focused address on `writes` rather than `changes`.
+   *
+   * `writes` is the default because a DP table carries values forward: a cell
+   * written with the value it already held is a real computation, and a
+   * one-keystroke breakpoint that silently never fires on it would read as the
+   * feature being broken. The rail shows the op, and `changes` is a click away.
+   */
+  const toggleBreakpoint = useCallback(() => {
+    const a = addrOf(focus);
+    if (!a) return;
+    const key = addrKey(a.s, a.at);
+    setBreakpoints((bs) => bs.some((b) => addrKey(b.s, b.at) === key)
+      ? bs.filter((b) => addrKey(b.s, b.at) !== key)
+      : [...bs, { ...a, op: 'writes' }]);
+  }, [focus]);
+
   const dragging = useTraceFile(openFile);
 
   const save = useCallback(() => {
@@ -217,6 +268,9 @@ export default function App() {
   useKeys(store, {
     onHelp: () => setShowKeys((v) => !v),
     onFit: () => setFocus(null),
+    onWatch: toggleWatch,
+    onBreak: toggleBreakpoint,
+    onContinue: (dir) => store?.continueTo(dir),
   });
 
   const setFocusIfUnpinned = useCallback((f) => {
@@ -272,10 +326,17 @@ export default function App() {
           <CodePane store={store} trace={trace} version={version} />
           <CallStackPane store={store} version={version}
                          focus={focus} onFocus={setFocusIfUnpinned} />
+          <WatchPane store={store} version={version}
+                     watches={watches} breakpoints={breakpoints}
+                     onSeek={(step) => store?.seek(step)}
+                     onRemove={(w) => setWatches((ws) =>
+                       ws.filter((x) => addrKey(x.s, x.at) !== addrKey(w.s, w.at)))}
+                     onRemoveBp={(b) => setBreakpoints((bs) =>
+                       bs.filter((x) => addrKey(x.s, x.at) !== addrKey(b.s, b.at)))} />
         </aside>
       </div>
 
-      <Transport store={store} version={version} />
+      <Transport store={store} version={version} hasBreakpoints={breakpoints.length > 0} />
       {showKeys && <Shortcuts onClose={() => setShowKeys(false)} />}
       {dragging && <DropOverlay />}
     </div>

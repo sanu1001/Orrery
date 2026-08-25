@@ -49,6 +49,13 @@ parsed. A dropped file crosses the same V1–V14 validator the Go side runs, so 
 truncated or corrupt trace shows you the validator's findings rather than a
 broken screen.
 
+**It is a debugger, not a slideshow.** Put a breakpoint on `dp[2][2]` and run
+to it — forwards, or backwards from the end, for the same cost. Watch an address
+and get its entire change history, every write with its old and new value, each
+one a click away. None of that is stored: a breakpoint is a scan over events,
+because every write carries its full value rather than a delta, so "when does
+this cell next change" is answerable without reconstructing any state.
+
 **The flagship:** a memoized DP shown as a recursion tree and a memo table at
 once. Hover a cell to find the call that computed it. Hover a `~` memo hit to
 watch a dashed arc trace back to where that value came from. Both directions,

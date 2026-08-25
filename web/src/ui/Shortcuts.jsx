@@ -8,6 +8,9 @@ const KEYS = [
   ['[  /  ]', 'slower / faster'],
   ['0 – 9', 'jump to n/10 through the trace'],
   ['d', 'toggle detail level'],
+  ['w', 'watch the address under the cursor'],
+  ['b', 'breakpoint on it'],
+  ['c  /  Shift + c', 'run to next / previous breakpoint'],
   ['Esc', 'clear the pinned highlight'],
   ['?', 'this list'],
 ];
