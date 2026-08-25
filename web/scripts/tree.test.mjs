@@ -1,16 +1,19 @@
 #!/usr/bin/env node
 /**
- * Tree topology tests.
+ * Layout-input tests for the node renderers.
  *
- * tidytree.test.mjs covers the LAYOUT — parents centred, no overlaps, a
- * 5,000-deep spine. This covers what is fed into it: which nodes are children
- * of which, where the empty slots go, and the malformed shapes that have to
- * render rather than throw or hang.
+ * tidytree.test.mjs covers the tidy-tree ALGORITHM — parents centred, no
+ * overlaps, a 5,000-deep spine. This covers what is fed into the renderers:
+ * which nodes are children of which, where the empty slots go, the malformed
+ * shapes that have to render rather than throw or hang, and the serpentine
+ * placement lists use instead.
  */
 
 import { buildShape, finalEdges, currentEdges, layoutCovers, edgeKey }
   from '../src/render/layout/treeShape.js';
 import { tidyTree } from '../src/render/layout/tidyTree.js';
+import { chainOrder, serpentine, reachable }
+  from '../src/render/layout/serpentine.js';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -168,6 +171,73 @@ const edges = (pairs) => new Map(pairs.map(([f, k, t]) => [edgeKey(f, k), t]));
   struct._n.n0.left = null;
   check('undoing that write removes the edge, with nothing else to keep in sync',
     currentEdges(struct, ORDER).size === 0);
+}
+
+// --- serpentine: the layout lists use instead of tidy-tree -----------------
+// A list is a tree of branching factor one, so RT runs on it and draws a
+// vertical column. These cover the left-to-right placement that replaces it.
+{
+  const order = ['a', 'b', 'c', 'd', 'e', 'f', 'g'];
+  const pos = serpentine(order, 3);
+  const at = (id) => pos.get(id);
+
+  check('the first row runs left to right',
+    at('a').col === 0 && at('b').col === 1 && at('c').col === 2);
+  // Boustrophedon: without it the wrap needs one long arrow flying back across
+  // the whole pane, which is what makes a wrapped list unreadable.
+  check('the second row runs right to left',
+    at('d').row === 1 && at('d').col === 2 && at('e').col === 1 && at('f').col === 0,
+    `d=${at('d').col} e=${at('e').col} f=${at('f').col}`);
+  check('and the third turns back again',
+    at('g').row === 2 && at('g').col === 0);
+  check('every node lands on exactly one slot',
+    new Set(order.map((id) => `${at(id).row}:${at(id).col}`)).size === order.length);
+}
+
+// --- order comes from the union, which is why reversal moves no boxes -------
+{
+  const union = {
+    nodeIds: ['n0', 'n1', 'n2'],
+    // The FINAL chain is reversed: n2 -> n1 -> n0.
+    edges: [['n0', 'next', 'n1'], ['n1', 'next', 'n2'],
+            ['n2', 'next', 'n1'], ['n1', 'next', 'n0']],
+  };
+  check('the default order is creation order, so nothing shifts as pointers move',
+    JSON.stringify(chainOrder(union, ['next'])) === JSON.stringify(['n0', 'n1', 'n2']));
+  // reflow:"final" is for an algorithm that genuinely reorders nodes, where
+  // creation order would cross every arrow.
+  check('reflow "final" instead walks the finished chain',
+    JSON.stringify(chainOrder(union, ['next'], 'final')) === JSON.stringify(['n2', 'n1', 'n0']),
+    chainOrder(union, ['next'], 'final').join(','));
+
+  const loop = { nodeIds: ['n0', 'n1'], edges: [['n0', 'next', 'n1'], ['n1', 'next', 'n0']] };
+  check('a final chain that is a closed loop still orders every node once',
+    chainOrder(loop, ['next'], 'final').length === 2);
+}
+
+// --- reachability, which is what dims a detached node -----------------------
+{
+  const mk = (links) => ({
+    _n: Object.fromEntries(Object.entries(links).map(([id, nx]) =>
+      [id, { val: id, next: nx ? { $: nx } : null }])),
+    nodeIDs() { return Object.keys(this._n); },
+    exists(id) { return this._n[id] != null; },
+    get([id, f]) { return this._n[id]?.[f] ?? null; },
+  });
+
+  const s1 = mk({ n0: 'n1', n1: null, n2: null });
+  check('a node no pointer reaches is detached, not missing',
+    !reachable(s1, ['next'], { head: 'n0' }).has('n2'));
+  check('and everything the chain does reach is live',
+    reachable(s1, ['next'], { head: 'n0' }).size === 2);
+  // Mid-reversal both halves are held by different refs; walking from all of
+  // them is what stops the list dimming itself in half.
+  check('every named pointer seeds the walk, not just head',
+    reachable(s1, ['next'], { head: 'n0', cur: 'n2' }).size === 3);
+
+  const cyc = mk({ n0: 'n1', n1: 'n0' });
+  check('a cycle terminates instead of spinning',
+    reachable(cyc, ['next'], { head: 'n0' }).size === 2);
 }
 
 console.log(failures === 0 ? '\ntree: all checks passed' : `\ntree: ${failures} FAILED`);

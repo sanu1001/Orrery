@@ -24,7 +24,7 @@ value, shown together.
 tiny reversible events. Renderers consume traces and know nothing about
 algorithms. That one rule is why a single visualizer covers sorting, dynamic
 programming, recursion and backtracking without becoming five visualizers in a
-trench coat — and why adding a fifteenth algorithm is one Go file and zero
+trench coat — and why adding an eighteenth algorithm is one Go file and zero
 frontend changes.
 
 **Backwards is free.** Every write records both its old and its new value, so
@@ -74,8 +74,9 @@ so they cannot drift.
 ```
   ALGORITHMS  ──emit──▶  TRACE (JSON)  ──read──▶  PLAYER ──▶ RENDERERS
    Go built-ins           init/set/call/ret       forward/    linear, grid,
-   user Go   (Stage B)    + provenance            backward    tree, call stack,
-   user C++  (Stage C)    + source lines          /seek       recursion tree
+   user Go   (Stage B)    + provenance            backward    tree, list,
+   user C++  (Stage C)    + source lines          /seek       call stack,
+                                                              recursion tree
 ```
 
 Two invariants carry the whole design.
@@ -105,7 +106,7 @@ make traces                  # generate the built-in traces + catalogue
 cd web && npm ci && npm run dev
 ```
 
-No server required: the fourteen built-in algorithms ship as static JSON next to
+No server required: the seventeen built-in algorithms ship as static JSON next to
 the bundle, so the app works with the API off, on a plane, or while a free-tier
 container is cold-starting.
 
@@ -136,7 +137,7 @@ make fuzz      # 60s on the trace decoder; it must never panic
 | `TestSeekEquivalence` | seeking from arbitrary positions equals stepping |
 | `TestGroupsRewindInReverse` | a grouped swap is one step and rewinds cleanly |
 | `TestCanonMatchesJS` | Go and JS format every number identically |
-| `conformance.sh` | 651 step hashes match across 14 traces, in two languages |
+| `conformance.sh` | 708 step hashes match across 17 traces, in two languages |
 | `tidytree.test.mjs` | the tidy-tree layout is symmetric, stable, and stack-safe |
 | `tree.test.mjs` | a cyclic or multi-parent tree renders instead of hanging |
 
@@ -157,7 +158,7 @@ Four event types, one address form, provenance on every write.
 
 | | |
 |---|---|
-| **Stage A** | shipped — Go engine, 14 algorithms, 5 renderer families, CLI, conformance suite |
+| **Stage A** | shipped — Go engine, 17 algorithms, 6 renderer families, CLI, conformance suite |
 | **Stage B** | designed — paste Go → `go/ast` instrumentation → WASM → runs in *your* browser, never on the server |
 | **Stage C** | designed, and deliberately not built — the doc explains what libclang and Emscripten would actually cost |
 

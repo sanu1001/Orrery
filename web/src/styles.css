@@ -443,6 +443,56 @@ input, select {
 }
 .tbadges text[data-bad="1"] { fill: var(--pruned); }
 
+/* ------------------------------------------------------- linked list ----- */
+
+.llist { width: 100%; height: 100%; display: block; }
+
+.llist .lnode rect {
+  fill: var(--surface-raise); stroke: var(--border); stroke-width: var(--stroke);
+  transition: fill var(--d-step) var(--ease), stroke var(--d-step) var(--ease);
+}
+.llist .lnode text {
+  font-family: var(--font-mono); font-size: 12px; fill: var(--text-dim);
+  text-anchor: middle; dominant-baseline: middle;
+}
+.llist .lnode { cursor: pointer; }
+.llist .lnode.enter { animation: nodeIn var(--d-step) var(--ease); }
+.llist .lnode[data-w="1"] rect {
+  stroke: var(--write); stroke-width: 2.5;
+  fill: color-mix(in srgb, var(--write) 16%, var(--surface-raise));
+}
+.llist .lnode[data-w="1"] text { fill: var(--text); }
+.llist .lnode[data-r="1"] rect { stroke: var(--read); stroke-dasharray: 3 2; }
+.llist .lnode[data-settled="1"] rect {
+  fill: color-mix(in srgb, var(--settled) 26%, var(--surface-raise));
+  stroke: var(--settled);
+}
+.llist .lnode[data-linked="1"] rect { stroke: var(--read); stroke-width: 2.5; }
+/* Unreachable is DIMMED, never hidden. Mid-reversal the old head really is
+   detached, and that is a state of the algorithm worth being able to see. */
+.llist .lnode[data-orphan="1"] { opacity: 0.45; }
+.llist .ll-orphan {
+  font-family: var(--font-mono); font-size: 9px; fill: var(--text-mute);
+  text-anchor: middle; dominant-baseline: middle;
+}
+
+.llist .ll-edge { stroke: var(--border-strong); stroke-width: var(--stroke); fill: none; }
+/* prev is quieter than next: it is the same information travelling backwards,
+   and drawing both at equal weight makes the pair unreadable. */
+.llist .ll-edge.below { stroke: var(--text-mute); stroke-width: 1; opacity: 0.8; }
+.llist .ll-edge.missing { stroke: var(--pruned); stroke-dasharray: 3 2; }
+.llist .ll-stub { fill: none; stroke: var(--pruned); stroke-dasharray: 2 2; }
+.llist .ll-stub-t {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--pruned); text-anchor: middle;
+}
+
+.llist .ll-ground line { stroke: var(--text-mute); stroke-width: 1.5; }
+
+.llist .ll-chip {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--cursor);
+  text-anchor: middle; letter-spacing: 0.04em;
+}
+
 /* ------------------------------------------------------------ code ------- */
 
 .codepane { font-family: var(--font-mono); font-size: var(--t-sm); background: var(--surface-sink);
