@@ -1,0 +1,104 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "insertion",
+    "title": "Insertion Sort",
+    "lang": "go",
+    "input": {
+      "values": [
+        5,
+        2,
+        9,
+        1,
+        7,
+        3
+      ]
+    },
+    "source": {
+      "path": "internal/algos/sorting/insertion.go",
+      "text": "package sorting\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed insertion.go\nvar insertionSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"insertion\",\n\t\tTitle:  \"Insertion Sort\",\n\t\tFamily: \"Sorting\",\n\t\tBlurb:  \"Grow a sorted prefix one element at a time, shifting the rest out of the way.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"values\", Kind: \"intList\", Max: 12, Default: []int{5, 2, 9, 1, 7, 3}},\n\t\t},\n\t\tDefaults: algos.Args{\"values\": []int{5, 2, 9, 1, 7, 3}},\n\t\tSource:   trace.Source{Path: \"internal/algos/sorting/insertion.go\", Text: insertionSrc, FirstLine: 1},\n\t\tTags:     []string{\"linear\", \"shift\"},\n\t\tRun:      runInsertion,\n\t})\n}\n\n// Insertion sort is in the set because its write pattern is genuinely\n// different from bubble sort's: it SHIFTS rather than swaps, so the same\n// renderer has to make a run of single writes read as one movement. If the\n// Linear renderer looks right for both, it is right.\nfunc runInsertion(tr *tracer.Tracer, args algos.Args) error {\n\tvals := args.Ints(\"values\")\n\tn := len(vals)\n\n\ta := tr.Array(\"a\", n, 0)\n\ta.Fill(vals)\n\n\ti := tr.Scalar(\"i\", -1).Aux()\n\tj := tr.Scalar(\"j\", -1).Aux()\n\tkey := tr.Scalar(\"key\", 0).Aux()\n\tsortedTo := tr.Scalar(\"sortedTo\", 1).Aux()\n\n\ttr.View(\"linear\", \"a\", 0,\n\t\ttracer.Title(\"array\"),\n\t\ttracer.Opt(\"cursors\", []any{\"i\", \"j\"}),\n\t\ttracer.Opt(\"chips\", []any{\"key\"}),\n\t\ttracer.Opt(\"regions\", []any{\n\t\t\tmap[string]any{\"name\": \"sorted\", \"from\": 0, \"to\": \"sortedTo\", \"style\": \"settled\"},\n\t\t}))\n\n\tfor idx := 1; idx \u003c n; idx++ {\n\t\ti.Set(idx).Lvl(1).Because(\"take a[%d] and find its home\", idx)\n\t\tk := a.Int(idx)\n\t\tkey.Set(k).Lvl(1).Because(\"a[%d]\", idx).From(a.Cell(idx))\n\n\t\tp := idx - 1\n\t\tfor p \u003e= 0 \u0026\u0026 a.Int(p) \u003e k {\n\t\t\tj.Set(p).Lvl(1)\n\t\t\ta.Set(p+1, a.Int(p)).\n\t\t\t\tBecause(\"a[%d]\", p).\n\t\t\t\tFrom(a.Cell(p)).\n\t\t\t\tNote(\"%d \u003e %d, so shift it right\", a.Int(p), k)\n\t\t\tp--\n\t\t}\n\t\tif p+1 != idx {\n\t\t\ta.Set(p+1, k).Because(\"key\").Note(\"drop %d into the gap at index %d\", k, p+1)\n\t\t}\n\t\tsortedTo.Set(idx+1).Lvl(1).Because(\"the first %d elements are sorted\", idx+1)\n\t}\n\ti.Set(-1).Lvl(1)\n\tj.Set(-1).Lvl(1)\n\treturn tr.Err()\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "linear",
+        "s": "a",
+        "pane": 0,
+        "title": "array",
+        "options": {
+          "chips": [
+            "key"
+          ],
+          "cursors": [
+            "i",
+            "j"
+          ],
+          "regions": [
+            {
+              "from": 0,
+              "name": "sorted",
+              "style": "settled",
+              "to": "sortedTo"
+            }
+          ]
+        }
+      }
+    ],
+    "counts": {
+      "events": 48,
+      "steps": 18,
+      "structs": 5
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"a","kind":"array","dims":[6],"fill":0,"ln":38},
+    {"t":"set","s":"a","at":[0],"from":0,"to":5,"ln":39,"g":1,"note":"input"},
+    {"t":"set","s":"a","at":[1],"from":0,"to":2,"ln":39,"g":1},
+    {"t":"set","s":"a","at":[2],"from":0,"to":9,"ln":39,"g":1},
+    {"t":"set","s":"a","at":[3],"from":0,"to":1,"ln":39,"g":1},
+    {"t":"set","s":"a","at":[4],"from":0,"to":7,"ln":39,"g":1},
+    {"t":"set","s":"a","at":[5],"from":0,"to":3,"ln":39,"g":1},
+    {"t":"init","s":"i","kind":"scalar","fill":-1,"aux":true,"ln":41},
+    {"t":"init","s":"j","kind":"scalar","fill":-1,"aux":true,"ln":42},
+    {"t":"init","s":"key","kind":"scalar","fill":0,"aux":true,"ln":43},
+    {"t":"init","s":"sortedTo","kind":"scalar","fill":1,"aux":true,"ln":44},
+    {"t":"set","s":"i","at":[],"from":-1,"to":1,"expr":"take a[1] and find its home","ln":55,"lvl":1},
+    {"t":"set","s":"key","at":[],"from":0,"to":2,"expr":"a[1]","deps":[{"s":"a","at":[1],"v":2}],"ln":57,"lvl":1},
+    {"t":"set","s":"j","at":[],"from":-1,"to":0,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[1],"from":2,"to":5,"expr":"a[0]","deps":[{"s":"a","at":[0],"v":5}],"ln":62,"note":"5 \u003e 2, so shift it right"},
+    {"t":"set","s":"a","at":[0],"from":5,"to":2,"expr":"key","ln":69,"note":"drop 2 into the gap at index 0"},
+    {"t":"set","s":"sortedTo","at":[],"from":1,"to":2,"expr":"the first 2 elements are sorted","ln":71,"lvl":1},
+    {"t":"set","s":"i","at":[],"from":1,"to":2,"expr":"take a[2] and find its home","ln":55,"lvl":1},
+    {"t":"set","s":"key","at":[],"from":2,"to":9,"expr":"a[2]","deps":[{"s":"a","at":[2],"v":9}],"ln":57,"lvl":1},
+    {"t":"set","s":"sortedTo","at":[],"from":2,"to":3,"expr":"the first 3 elements are sorted","ln":71,"lvl":1},
+    {"t":"set","s":"i","at":[],"from":2,"to":3,"expr":"take a[3] and find its home","ln":55,"lvl":1},
+    {"t":"set","s":"key","at":[],"from":9,"to":1,"expr":"a[3]","deps":[{"s":"a","at":[3],"v":1}],"ln":57,"lvl":1},
+    {"t":"set","s":"j","at":[],"from":0,"to":2,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[3],"from":1,"to":9,"expr":"a[2]","deps":[{"s":"a","at":[2],"v":9}],"ln":62,"note":"9 \u003e 1, so shift it right"},
+    {"t":"set","s":"j","at":[],"from":2,"to":1,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[2],"from":9,"to":5,"expr":"a[1]","deps":[{"s":"a","at":[1],"v":5}],"ln":62,"note":"5 \u003e 1, so shift it right"},
+    {"t":"set","s":"j","at":[],"from":1,"to":0,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[1],"from":5,"to":2,"expr":"a[0]","deps":[{"s":"a","at":[0],"v":2}],"ln":62,"note":"2 \u003e 1, so shift it right"},
+    {"t":"set","s":"a","at":[0],"from":2,"to":1,"expr":"key","ln":69,"note":"drop 1 into the gap at index 0"},
+    {"t":"set","s":"sortedTo","at":[],"from":3,"to":4,"expr":"the first 4 elements are sorted","ln":71,"lvl":1},
+    {"t":"set","s":"i","at":[],"from":3,"to":4,"expr":"take a[4] and find its home","ln":55,"lvl":1},
+    {"t":"set","s":"key","at":[],"from":1,"to":7,"expr":"a[4]","deps":[{"s":"a","at":[4],"v":7}],"ln":57,"lvl":1},
+    {"t":"set","s":"j","at":[],"from":0,"to":3,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[4],"from":7,"to":9,"expr":"a[3]","deps":[{"s":"a","at":[3],"v":9}],"ln":62,"note":"9 \u003e 7, so shift it right"},
+    {"t":"set","s":"a","at":[3],"from":9,"to":7,"expr":"key","ln":69,"note":"drop 7 into the gap at index 3"},
+    {"t":"set","s":"sortedTo","at":[],"from":4,"to":5,"expr":"the first 5 elements are sorted","ln":71,"lvl":1},
+    {"t":"set","s":"i","at":[],"from":4,"to":5,"expr":"take a[5] and find its home","ln":55,"lvl":1},
+    {"t":"set","s":"key","at":[],"from":7,"to":3,"expr":"a[5]","deps":[{"s":"a","at":[5],"v":3}],"ln":57,"lvl":1},
+    {"t":"set","s":"j","at":[],"from":3,"to":4,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[5],"from":3,"to":9,"expr":"a[4]","deps":[{"s":"a","at":[4],"v":9}],"ln":62,"note":"9 \u003e 3, so shift it right"},
+    {"t":"set","s":"j","at":[],"from":4,"to":3,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[4],"from":9,"to":7,"expr":"a[3]","deps":[{"s":"a","at":[3],"v":7}],"ln":62,"note":"7 \u003e 3, so shift it right"},
+    {"t":"set","s":"j","at":[],"from":3,"to":2,"ln":61,"lvl":1},
+    {"t":"set","s":"a","at":[3],"from":7,"to":5,"expr":"a[2]","deps":[{"s":"a","at":[2],"v":5}],"ln":62,"note":"5 \u003e 3, so shift it right"},
+    {"t":"set","s":"a","at":[2],"from":5,"to":3,"expr":"key","ln":69,"note":"drop 3 into the gap at index 2"},
+    {"t":"set","s":"sortedTo","at":[],"from":5,"to":6,"expr":"the first 6 elements are sorted","ln":71,"lvl":1},
+    {"t":"set","s":"i","at":[],"from":5,"to":-1,"ln":73,"lvl":1},
+    {"t":"set","s":"j","at":[],"from":2,"to":-1,"ln":74,"lvl":1}
+  ]
+}

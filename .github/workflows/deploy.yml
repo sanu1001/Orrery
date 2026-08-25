@@ -1,0 +1,48 @@
+name: deploy
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# GitHub Pages needs these; without them the deploy step 403s and the error
+# does not say why.
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Reads the `go` directive from go.mod rather than pinning a version
+      # here, so CI can never drift from what the module declares. It also
+      # means CI tests the declared FLOOR: if a newer language feature sneaks
+      # in while developing on a newer toolchain, this is what catches it.
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: web/package-lock.json }
+
+      # The static traces are GENERATED from the Go registry, never committed.
+      # Building them here is what keeps the deployed app in step with the
+      # algorithms, and it is why the site works with no API at all.
+      - name: generate traces + catalogue
+        run: make traces
+
+      - name: build
+        run: cd web && npm ci && npm run build
+
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with: { path: web/dist }
+      - id: deployment
+        uses: actions/deploy-pages@v4

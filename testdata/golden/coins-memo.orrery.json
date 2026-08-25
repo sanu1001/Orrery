@@ -1,0 +1,134 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "coins-memo",
+    "title": "Coin Change (memoized)",
+    "lang": "go",
+    "input": {
+      "amount": 11,
+      "coins": [
+        1,
+        3,
+        4
+      ]
+    },
+    "source": {
+      "path": "internal/algos/dp/coins.go",
+      "text": "package dp\n\nimport (\n\t_ \"embed\"\n\t\"sort\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed coins.go\nvar coinsSrc string\n\n// noSolution is the \"cannot be made\" marker. It renders as an infinity glyph\n// rather than a magic number, because a cell reading 1048576 makes the viewer\n// hunt for a bug that is not there. TRACE_FORMAT.md 5 explains why infinity\n// travels as a string.\nconst noSolution = 1 \u003c\u003c 20\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"coins-memo\",\n\t\tTitle:  \"Coin Change (memoized)\",\n\t\tFamily: \"Dynamic programming\",\n\t\tBlurb:  \"The fewest coins that make an amount -- as a recursion tree and a memo table, side by side.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"coins\", Kind: \"intList\", Max: 6, Default: []int{1, 3, 4},\n\t\t\t\tHelp: \"coin denominations\"},\n\t\t\t{Name: \"amount\", Kind: \"int\", Min: 0, Max: 24, Default: 11},\n\t\t},\n\t\tDefaults: algos.Args{\"coins\": []int{1, 3, 4}, \"amount\": 11},\n\t\tSource:   trace.Source{Path: \"internal/algos/dp/coins.go\", Text: coinsSrc, FirstLine: 1},\n\t\tTags:     []string{\"recursion\", \"memoization\", \"flagship\"},\n\t\tRun:      runCoins,\n\t})\n}\n\n// runCoins is THE flagship. Two panes, one store, no synchronization code:\n// both panes are pure functions of the same state, so they cannot drift.\n//\n// The interesting thing to watch is the memo grid's fill ORDER. A bottom-up\n// solution fills it left to right; this one jumps around, because the order is\n// driven by the recursion rather than by a loop. That scattered trail is the\n// entire visual argument for why memoization is not the same as bottom-up DP.\nfunc runCoins(tr *tracer.Tracer, args algos.Args) error {\n\tcoins := append([]int(nil), args.Ints(\"coins\")...)\n\t// Largest denomination first. The result is identical -- the loop explores\n\t// every branch regardless of order -- but the recursion tree comes out\n\t// shallow and bushy instead of one long diagonal, so branching and reuse\n\t// are visible within the first handful of steps rather than the last.\n\tsort.Sort(sort.Reverse(sort.IntSlice(coins)))\n\tamount := args.Int(\"amount\")\n\n\tlabels := make([]string, amount+1)\n\tfor i := range labels {\n\t\tlabels[i] = itoa(i)\n\t}\n\n\tmemo := tr.Grid(\"memo\", 1, amount+1, nil).Labels([]string{\"coins\"}, labels)\n\ttr.View(\"recursionTree\", \"$calls\", 0,\n\t\ttracer.Title(\"call tree\"), tracer.Opt(\"memoOf\", \"memo\"))\n\ttr.View(\"grid\", \"memo\", 1,\n\t\ttracer.Title(\"memo: fewest coins for each amount\"),\n\t\ttracer.Opt(\"trail\", 8))\n\ttr.View(\"callStack\", \"$calls\", \"side\")\n\n\tcoinChange(tr, memo, coins, amount)\n\treturn tr.Err()\n}\n\nfunc coinChange(tr *tracer.Tracer, memo *tracer.Grid, coins []int, rem int) int {\n\ttr.Call(\"coins\", tracer.A(\"rem\", rem))\n\n\tif rem == 0 {\n\t\ttr.Return(0).Because(\"nothing left to make\")\n\t\treturn 0\n\t}\n\tif rem \u003c 0 {\n\t\t// The trace carries the infinity SENTINEL rather than 1\u003c\u003c20. A cell\n\t\t// reading 1048576 sends the viewer hunting for a bug that is not there;\n\t\t// the Go code keeps its cheap integer while the display stays honest.\n\t\ttr.Return(trace.Inf).Because(\"overshot -- this branch is dead\")\n\t\treturn noSolution\n\t}\n\tif v := memo.At(0, rem); v != nil {\n\t\tif v == trace.Inf {\n\t\t\ttr.Return(trace.Inf).\n\t\t\t\tBecause(\"memo[%d]\", rem).\n\t\t\t\tFrom(memo.Cell(0, rem)).\n\t\t\t\tNote(\"already known to be impossible\")\n\t\t\treturn noSolution\n\t\t}\n\t\tgot := memo.Int(0, rem)\n\t\ttr.Return(got).\n\t\t\tBecause(\"memo[%d]\", rem).\n\t\t\tFrom(memo.Cell(0, rem)).\n\t\t\tNote(\"already solved, so this whole subtree is skipped\")\n\t\treturn got\n\t}\n\n\tbest := noSolution\n\tbestCoin := 0\n\tfor _, c := range coins {\n\t\tsub := coinChange(tr, memo, coins, rem-c)\n\t\tif sub+1 \u003c best {\n\t\t\tbest, bestCoin = sub+1, c\n\t\t}\n\t}\n\n\tif best \u003e= noSolution {\n\t\tmemo.Set(0, rem, trace.Inf).Note(\"no combination makes %d\", rem)\n\t} else {\n\t\tmemo.Set(0, rem, best).\n\t\t\tBecause(\"1 + memo[%d]\", rem-bestCoin).\n\t\t\tFrom(memo.Cell(0, rem-bestCoin)).\n\t\t\tNote(\"best is a %d coin plus the solution for %d\", bestCoin, rem-bestCoin)\n\t}\n\tif best \u003e= noSolution {\n\t\ttr.Return(trace.Inf).Because(\"no branch leads anywhere\")\n\t} else {\n\t\ttr.Return(best).Because(\"cheapest of the %d branches\", len(coins))\n\t}\n\treturn best\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "recursionTree",
+        "s": "$calls",
+        "pane": 0,
+        "title": "call tree",
+        "options": {
+          "memoOf": "memo"
+        }
+      },
+      {
+        "family": "grid",
+        "s": "memo",
+        "pane": 1,
+        "title": "memo: fewest coins for each amount",
+        "options": {
+          "trail": 8
+        }
+      },
+      {
+        "family": "callStack",
+        "s": "$calls",
+        "pane": "side"
+      }
+    ],
+    "counts": {
+      "events": 80,
+      "steps": 80,
+      "structs": 1
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"memo","kind":"grid","dims":[1,12],"fill":null,"labels":{"rows":["coins"],"cols":["0","1","2","3","4","5","6","7","8","9","10","11"]},"ln":60},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":11}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":7}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":3}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":-1}],"ln":73},
+    {"t":"ret","v":"inf","expr":"overshot -- this branch is dead","ln":83},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":0}],"ln":73},
+    {"t":"ret","v":0,"expr":"nothing left to make","ln":76},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":2}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":-2}],"ln":73},
+    {"t":"ret","v":"inf","expr":"overshot -- this branch is dead","ln":83},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":-1}],"ln":73},
+    {"t":"ret","v":"inf","expr":"overshot -- this branch is dead","ln":83},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":1}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":-3}],"ln":73},
+    {"t":"ret","v":"inf","expr":"overshot -- this branch is dead","ln":83},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":-2}],"ln":73},
+    {"t":"ret","v":"inf","expr":"overshot -- this branch is dead","ln":83},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":0}],"ln":73},
+    {"t":"ret","v":0,"expr":"nothing left to make","ln":76},
+    {"t":"set","s":"memo","at":[0,1],"from":null,"to":1,"expr":"1 + memo[0]","deps":[{"s":"memo","at":[0,0],"v":null}],"ln":114,"note":"best is a 1 coin plus the solution for 0"},
+    {"t":"ret","v":1,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"set","s":"memo","at":[0,2],"from":null,"to":2,"expr":"1 + memo[1]","deps":[{"s":"memo","at":[0,1],"v":1}],"ln":114,"note":"best is a 1 coin plus the solution for 1"},
+    {"t":"ret","v":2,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"set","s":"memo","at":[0,3],"from":null,"to":1,"expr":"1 + memo[0]","deps":[{"s":"memo","at":[0,0],"v":null}],"ln":114,"note":"best is a 3 coin plus the solution for 0"},
+    {"t":"ret","v":1,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":4}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":0}],"ln":73},
+    {"t":"ret","v":0,"expr":"nothing left to make","ln":76},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":1}],"ln":73},
+    {"t":"ret","v":1,"expr":"memo[1]","deps":[{"s":"memo","at":[0,1],"v":1}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":3}],"ln":73},
+    {"t":"ret","v":1,"expr":"memo[3]","deps":[{"s":"memo","at":[0,3],"v":1}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"set","s":"memo","at":[0,4],"from":null,"to":1,"expr":"1 + memo[0]","deps":[{"s":"memo","at":[0,0],"v":null}],"ln":114,"note":"best is a 4 coin plus the solution for 0"},
+    {"t":"ret","v":1,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":6}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":2}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[2]","deps":[{"s":"memo","at":[0,2],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":3}],"ln":73},
+    {"t":"ret","v":1,"expr":"memo[3]","deps":[{"s":"memo","at":[0,3],"v":1}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":5}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":1}],"ln":73},
+    {"t":"ret","v":1,"expr":"memo[1]","deps":[{"s":"memo","at":[0,1],"v":1}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":2}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[2]","deps":[{"s":"memo","at":[0,2],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":4}],"ln":73},
+    {"t":"ret","v":1,"expr":"memo[4]","deps":[{"s":"memo","at":[0,4],"v":1}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"set","s":"memo","at":[0,5],"from":null,"to":2,"expr":"1 + memo[1]","deps":[{"s":"memo","at":[0,1],"v":1}],"ln":114,"note":"best is a 4 coin plus the solution for 1"},
+    {"t":"ret","v":2,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"set","s":"memo","at":[0,6],"from":null,"to":2,"expr":"1 + memo[3]","deps":[{"s":"memo","at":[0,3],"v":1}],"ln":114,"note":"best is a 3 coin plus the solution for 3"},
+    {"t":"ret","v":2,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"set","s":"memo","at":[0,7],"from":null,"to":2,"expr":"1 + memo[3]","deps":[{"s":"memo","at":[0,3],"v":1}],"ln":114,"note":"best is a 4 coin plus the solution for 3"},
+    {"t":"ret","v":2,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":8}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":4}],"ln":73},
+    {"t":"ret","v":1,"expr":"memo[4]","deps":[{"s":"memo","at":[0,4],"v":1}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":5}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[5]","deps":[{"s":"memo","at":[0,5],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":7}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[7]","deps":[{"s":"memo","at":[0,7],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"set","s":"memo","at":[0,8],"from":null,"to":2,"expr":"1 + memo[4]","deps":[{"s":"memo","at":[0,4],"v":1}],"ln":114,"note":"best is a 4 coin plus the solution for 4"},
+    {"t":"ret","v":2,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":10}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":6}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[6]","deps":[{"s":"memo","at":[0,6],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":7}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[7]","deps":[{"s":"memo","at":[0,7],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":9}],"ln":73},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":5}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[5]","deps":[{"s":"memo","at":[0,5],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":6}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[6]","deps":[{"s":"memo","at":[0,6],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"call","fn":"coins","args":[{"n":"rem","v":8}],"ln":73},
+    {"t":"ret","v":2,"expr":"memo[8]","deps":[{"s":"memo","at":[0,8],"v":2}],"ln":95,"note":"already solved, so this whole subtree is skipped"},
+    {"t":"set","s":"memo","at":[0,9],"from":null,"to":3,"expr":"1 + memo[5]","deps":[{"s":"memo","at":[0,5],"v":2}],"ln":114,"note":"best is a 4 coin plus the solution for 5"},
+    {"t":"ret","v":3,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"set","s":"memo","at":[0,10],"from":null,"to":3,"expr":"1 + memo[6]","deps":[{"s":"memo","at":[0,6],"v":2}],"ln":114,"note":"best is a 4 coin plus the solution for 6"},
+    {"t":"ret","v":3,"expr":"cheapest of the 3 branches","ln":122},
+    {"t":"set","s":"memo","at":[0,11],"from":null,"to":3,"expr":"1 + memo[7]","deps":[{"s":"memo","at":[0,7],"v":2}],"ln":114,"note":"best is a 4 coin plus the solution for 7"},
+    {"t":"ret","v":3,"expr":"cheapest of the 3 branches","ln":122}
+  ]
+}

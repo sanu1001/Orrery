@@ -1,0 +1,30 @@
+# build output
+/bin/
+/dist/
+/tmp/
+*.wasm
+*.exe
+
+# generated: `make traces` rebuilds these from the Go registry
+/web/public/traces/
+/web/public/algorithms.json
+
+# node
+/web/node_modules/
+/web/dist/
+npm-debug.log*
+
+# go
+*.out
+*.prof
+/internal/trace/testdata/fuzz/
+
+# local env
+.env
+.env.local
+
+# editor
+.vscode/
+.idea/
+*.swp
+.DS_Store

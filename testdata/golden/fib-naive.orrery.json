@@ -1,0 +1,87 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "fib-naive",
+    "title": "Fibonacci (naive recursion)",
+    "lang": "go",
+    "input": {
+      "n": 6
+    },
+    "source": {
+      "path": "internal/algos/dp/fib.go",
+      "text": "package dp\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed fib.go\nvar fibSrc string\n\nfunc init() {\n\tsrc := trace.Source{Path: \"internal/algos/dp/fib.go\", Text: fibSrc, FirstLine: 1}\n\n\talgos.Register(algos.Spec{\n\t\tID:     \"fib-naive\",\n\t\tTitle:  \"Fibonacci (naive recursion)\",\n\t\tFamily: \"Dynamic programming\",\n\t\tBlurb:  \"The same subproblems, over and over. This is what exponential looks like.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"n\", Kind: \"int\", Min: 0, Max: 22, Default: 6,\n\t\t\t\tHelp: \"try 20 to watch the tree explode\"},\n\t\t},\n\t\tDefaults: algos.Args{\"n\": 6},\n\t\tSource:   src,\n\t\tTags:     []string{\"recursion\", \"exponential\"},\n\t\tRun:      runFibNaive,\n\t})\n\n\talgos.Register(algos.Spec{\n\t\tID:     \"fib-memo\",\n\t\tTitle:  \"Fibonacci (memoized)\",\n\t\tFamily: \"Dynamic programming\",\n\t\tBlurb:  \"The same recursion, with a table. Watch the tree collapse.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"n\", Kind: \"int\", Min: 0, Max: 20, Default: 8},\n\t\t},\n\t\tDefaults: algos.Args{\"n\": 8},\n\t\tSource:   src,\n\t\tTags:     []string{\"recursion\", \"memoization\", \"flagship\"},\n\t\tRun:      runFibMemo,\n\t})\n}\n\nfunc runFibNaive(tr *tracer.Tracer, args algos.Args) error {\n\tn := args.Int(\"n\")\n\ttr.View(\"recursionTree\", \"$calls\", 0, tracer.Title(\"call tree\"))\n\ttr.View(\"callStack\", \"$calls\", \"side\")\n\tfibNaive(tr, n)\n\treturn tr.Err()\n}\n\nfunc fibNaive(tr *tracer.Tracer, n int) int {\n\ttr.Call(\"fib\", tracer.A(\"n\", n))\n\tif n \u003c 2 {\n\t\ttr.Return(n).Because(\"base case\")\n\t\treturn n\n\t}\n\ta := fibNaive(tr, n-1)\n\tb := fibNaive(tr, n-2)\n\ttr.Return(a+b).Because(\"fib(%d) + fib(%d) = %d + %d\", n-1, n-2, a, b)\n\treturn a + b\n}\n\n// runFibMemo is one half of the flagship. The recursion tree and the memo table\n// are the same computation drawn two ways, and the point of showing them side\n// by side is that you can SEE which nodes are reused.\n//\n// Nothing here tells the renderer about memo hits. A memo hit is recognisable\n// structurally -- a call with no children whose ret carries deps into the memo\n// structure -- so the citation edge is derived, not declared. ADR 0005.\nfunc runFibMemo(tr *tracer.Tracer, args algos.Args) error {\n\tn := args.Int(\"n\")\n\tmemo := tr.Map(\"memo\", nil)\n\ttr.View(\"recursionTree\", \"$calls\", 0,\n\t\ttracer.Title(\"call tree\"), tracer.Opt(\"memoOf\", \"memo\"))\n\ttr.View(\"linear\", \"memo\", 1, tracer.Title(\"memo\"))\n\ttr.View(\"callStack\", \"$calls\", \"side\")\n\tfibMemo(tr, memo, n)\n\treturn tr.Err()\n}\n\nfunc fibMemo(tr *tracer.Tracer, memo *tracer.Map, n int) int {\n\ttr.Call(\"fib\", tracer.A(\"n\", n))\n\tkey := itoa(n)\n\tif memo.Has(key) {\n\t\tv := memo.Int(key)\n\t\ttr.Return(v).\n\t\t\tBecause(\"memo[%d]\", n).\n\t\t\tFrom(memo.Cell(key)).\n\t\t\tNote(\"already computed, so no work happens here\")\n\t\treturn v\n\t}\n\tif n \u003c 2 {\n\t\tmemo.Set(key, n).Because(\"base case\")\n\t\ttr.Return(n).Because(\"base case\")\n\t\treturn n\n\t}\n\ta := fibMemo(tr, memo, n-1)\n\tb := fibMemo(tr, memo, n-2)\n\tmemo.Set(key, a+b).\n\t\tBecause(\"memo[%d] + memo[%d]\", n-1, n-2).\n\t\tFrom(memo.Cell(itoa(n-1)), memo.Cell(itoa(n-2)))\n\ttr.Return(a+b).Because(\"fib(%d) + fib(%d)\", n-1, n-2)\n\treturn a + b\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "recursionTree",
+        "s": "$calls",
+        "pane": 0,
+        "title": "call tree"
+      },
+      {
+        "family": "callStack",
+        "s": "$calls",
+        "pane": "side"
+      }
+    ],
+    "counts": {
+      "events": 50,
+      "steps": 50,
+      "structs": 0
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"call","fn":"fib","args":[{"n":"n","v":6}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":5}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":4}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":3}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":2}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":0}],"ln":56},
+    {"t":"ret","v":0,"expr":"base case","ln":58},
+    {"t":"ret","v":1,"expr":"fib(1) + fib(0) = 1 + 0","ln":63},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"ret","v":2,"expr":"fib(2) + fib(1) = 1 + 1","ln":63},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":2}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":0}],"ln":56},
+    {"t":"ret","v":0,"expr":"base case","ln":58},
+    {"t":"ret","v":1,"expr":"fib(1) + fib(0) = 1 + 0","ln":63},
+    {"t":"ret","v":3,"expr":"fib(3) + fib(2) = 2 + 1","ln":63},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":3}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":2}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":0}],"ln":56},
+    {"t":"ret","v":0,"expr":"base case","ln":58},
+    {"t":"ret","v":1,"expr":"fib(1) + fib(0) = 1 + 0","ln":63},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"ret","v":2,"expr":"fib(2) + fib(1) = 1 + 1","ln":63},
+    {"t":"ret","v":5,"expr":"fib(4) + fib(3) = 3 + 2","ln":63},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":4}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":3}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":2}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":0}],"ln":56},
+    {"t":"ret","v":0,"expr":"base case","ln":58},
+    {"t":"ret","v":1,"expr":"fib(1) + fib(0) = 1 + 0","ln":63},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"ret","v":2,"expr":"fib(2) + fib(1) = 1 + 1","ln":63},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":2}],"ln":56},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":1}],"ln":56},
+    {"t":"ret","v":1,"expr":"base case","ln":58},
+    {"t":"call","fn":"fib","args":[{"n":"n","v":0}],"ln":56},
+    {"t":"ret","v":0,"expr":"base case","ln":58},
+    {"t":"ret","v":1,"expr":"fib(1) + fib(0) = 1 + 0","ln":63},
+    {"t":"ret","v":3,"expr":"fib(3) + fib(2) = 2 + 1","ln":63},
+    {"t":"ret","v":8,"expr":"fib(5) + fib(4) = 5 + 3","ln":63}
+  ]
+}

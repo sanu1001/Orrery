@@ -1,0 +1,14 @@
+# The golden fixtures are compared BYTE FOR BYTE (internal/replay/player_test.go,
+# TestGoldenFixtures), and scripts/*.sh run under bash. Git for Windows defaults
+# to core.autocrlf=true, so without this a fresh clone -- or the `git checkout .`
+# that CLAUDE_CODE_START.md advertises as the undo button -- rewrites both to
+# CRLF: all twelve goldens then fail looking exactly like a trace-format change,
+# and the shell scripts die on `$'\r': command not found`.
+#
+# Pinning LF in the working tree costs nothing on Linux, where it is already the
+# case, and removes the entire class of failure on Windows.
+* text=auto eol=lf
+
+# Binary, and the text filters must never touch them.
+*.png binary
+*.gif binary

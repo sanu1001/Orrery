@@ -1,0 +1,38 @@
+name: ci
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Reads the `go` directive from go.mod rather than pinning a version
+      # here, so CI can never drift from what the module declares. It also
+      # means CI tests the declared FLOOR: if a newer language feature sneaks
+      # in while developing on a newer toolchain, this is what catches it.
+      - uses: actions/setup-go@v5
+        with: { go-version-file: go.mod }
+      - uses: actions/setup-node@v4
+        with: { node-version: '22' }
+
+      - name: vet
+        run: go vet ./...
+
+      # Includes the golden-fixture check: any change to the trace format shows
+      # up here as a diff across twelve committed files.
+      - name: go test
+        run: go test -race ./...
+
+      - name: js tests
+        run: cd web && node scripts/tidytree.test.mjs && node scripts/player.test.mjs
+
+      # The Go player and the JS player must agree at every step of every
+      # golden trace.
+      - name: conformance
+        run: ./scripts/conformance.sh
+
+      - name: frontend build
+        run: cd web && npm ci && npm run build
+
+      - name: fuzz (short)
+        run: go test ./internal/trace -run=Fuzz -fuzz=FuzzDecodeValidate -fuzztime=30s

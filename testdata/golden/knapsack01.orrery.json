@@ -1,0 +1,88 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "knapsack01",
+    "title": "0/1 Knapsack",
+    "lang": "go",
+    "input": {
+      "capacity": 8,
+      "values": [
+        4,
+        5,
+        6,
+        3
+      ],
+      "weights": [
+        3,
+        4,
+        5,
+        2
+      ]
+    },
+    "source": {
+      "path": "internal/algos/dp/knapsack.go",
+      "text": "package dp\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed knapsack.go\nvar knapSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"knapsack01\",\n\t\tTitle:  \"0/1 Knapsack\",\n\t\tFamily: \"Dynamic programming\",\n\t\tBlurb:  \"Each row adds one item; each column is a capacity. Take it, or leave it.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"weights\", Kind: \"intList\", Max: 8, Default: []int{3, 4, 5, 2},\n\t\t\t\tHelp: \"item weights\"},\n\t\t\t{Name: \"values\", Kind: \"intList\", Max: 8, Default: []int{4, 5, 6, 3},\n\t\t\t\tHelp: \"item values (same length as weights)\"},\n\t\t\t{Name: \"capacity\", Kind: \"int\", Min: 1, Max: 12, Default: 8,\n\t\t\t\tHelp: \"knapsack capacity\"},\n\t\t},\n\t\tDefaults: algos.Args{\n\t\t\t\"weights\": []int{3, 4, 5, 2}, \"values\": []int{4, 5, 6, 3}, \"capacity\": 8,\n\t\t},\n\t\tSource: trace.Source{Path: \"internal/algos/dp/knapsack.go\", Text: knapSrc, FirstLine: 1},\n\t\tTags:   []string{\"grid\", \"table\", \"bottom-up\"},\n\t\tRun:    runKnapsack,\n\t})\n}\n\nfunc runKnapsack(tr *tracer.Tracer, args algos.Args) error {\n\tw := args.Ints(\"weights\")\n\tv := args.Ints(\"values\")\n\tcap := args.Int(\"capacity\")\n\tn := len(w)\n\tif len(v) \u003c n {\n\t\tn = len(v)\n\t}\n\n\trows := make([]string, n+1)\n\trows[0] = \"-\"\n\tfor i := 0; i \u003c n; i++ {\n\t\trows[i+1] = itoa(w[i]) + \"kg/\" + itoa(v[i])\n\t}\n\tcols := make([]string, cap+1)\n\tfor c := 0; c \u003c= cap; c++ {\n\t\tcols[c] = itoa(c)\n\t}\n\n\tdp := tr.Grid(\"dp\", n+1, cap+1, 0).Labels(rows, cols)\n\ttr.View(\"grid\", \"dp\", 0,\n\t\ttracer.Title(\"value by (items considered, capacity)\"),\n\t\ttracer.Opt(\"trail\", 6),\n\t\ttracer.Opt(\"answer\", []any{n, cap}))\n\n\tfor i := 1; i \u003c= n; i++ {\n\t\tfor c := 0; c \u003c= cap; c++ {\n\t\t\tskip := dp.Int(i-1, c)\n\t\t\tif w[i-1] \u003e c {\n\t\t\t\tdp.Set(i, c, skip).\n\t\t\t\t\tBecause(\"dp[%d][%d]\", i-1, c).\n\t\t\t\t\tFrom(dp.Cell(i-1, c)).\n\t\t\t\t\tNote(\"item %d weighs %d, which does not fit in %d\", i, w[i-1], c)\n\t\t\t\tcontinue\n\t\t\t}\n\t\t\ttake := dp.Int(i-1, c-w[i-1]) + v[i-1]\n\t\t\tif take \u003e skip {\n\t\t\t\tdp.Set(i, c, take).\n\t\t\t\t\tBecause(\"%d + dp[%d][%d]\", v[i-1], i-1, c-w[i-1]).\n\t\t\t\t\tFrom(dp.Cell(i-1, c-w[i-1]), dp.Cell(i-1, c)).\n\t\t\t\t\tNote(\"taking item %d beats skipping it (%d \u003e %d)\", i, take, skip)\n\t\t\t} else {\n\t\t\t\tdp.Set(i, c, skip).\n\t\t\t\t\tBecause(\"dp[%d][%d]\", i-1, c).\n\t\t\t\t\tFrom(dp.Cell(i-1, c), dp.Cell(i-1, c-w[i-1])).\n\t\t\t\t\tNote(\"skipping item %d is at least as good (%d \u003e= %d)\", i, skip, take)\n\t\t\t}\n\t\t}\n\t}\n\treturn tr.Err()\n}\n\nfunc itoa(n int) string {\n\tif n == 0 {\n\t\treturn \"0\"\n\t}\n\tneg := n \u003c 0\n\tif neg {\n\t\tn = -n\n\t}\n\tvar b []byte\n\tfor n \u003e 0 {\n\t\tb = append([]byte{byte('0' + n%10)}, b...)\n\t\tn /= 10\n\t}\n\tif neg {\n\t\treturn \"-\" + string(b)\n\t}\n\treturn string(b)\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "grid",
+        "s": "dp",
+        "pane": 0,
+        "title": "value by (items considered, capacity)",
+        "options": {
+          "answer": [
+            4,
+            8
+          ],
+          "trail": 6
+        }
+      }
+    ],
+    "counts": {
+      "events": 37,
+      "steps": 37,
+      "structs": 1
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"dp","kind":"grid","dims":[5,9],"fill":0,"labels":{"rows":["-","3kg/4","4kg/5","5kg/6","2kg/3"],"cols":["0","1","2","3","4","5","6","7","8"]},"ln":56},
+    {"t":"set","s":"dp","at":[1,0],"from":0,"to":0,"expr":"dp[0][0]","deps":[{"s":"dp","at":[0,0],"v":0}],"ln":66,"note":"item 1 weighs 3, which does not fit in 0"},
+    {"t":"set","s":"dp","at":[1,1],"from":0,"to":0,"expr":"dp[0][1]","deps":[{"s":"dp","at":[0,1],"v":0}],"ln":66,"note":"item 1 weighs 3, which does not fit in 1"},
+    {"t":"set","s":"dp","at":[1,2],"from":0,"to":0,"expr":"dp[0][2]","deps":[{"s":"dp","at":[0,2],"v":0}],"ln":66,"note":"item 1 weighs 3, which does not fit in 2"},
+    {"t":"set","s":"dp","at":[1,3],"from":0,"to":4,"expr":"4 + dp[0][0]","deps":[{"s":"dp","at":[0,0],"v":0},{"s":"dp","at":[0,3],"v":0}],"ln":74,"note":"taking item 1 beats skipping it (4 \u003e 0)"},
+    {"t":"set","s":"dp","at":[1,4],"from":0,"to":4,"expr":"4 + dp[0][1]","deps":[{"s":"dp","at":[0,1],"v":0},{"s":"dp","at":[0,4],"v":0}],"ln":74,"note":"taking item 1 beats skipping it (4 \u003e 0)"},
+    {"t":"set","s":"dp","at":[1,5],"from":0,"to":4,"expr":"4 + dp[0][2]","deps":[{"s":"dp","at":[0,2],"v":0},{"s":"dp","at":[0,5],"v":0}],"ln":74,"note":"taking item 1 beats skipping it (4 \u003e 0)"},
+    {"t":"set","s":"dp","at":[1,6],"from":0,"to":4,"expr":"4 + dp[0][3]","deps":[{"s":"dp","at":[0,3],"v":0},{"s":"dp","at":[0,6],"v":0}],"ln":74,"note":"taking item 1 beats skipping it (4 \u003e 0)"},
+    {"t":"set","s":"dp","at":[1,7],"from":0,"to":4,"expr":"4 + dp[0][4]","deps":[{"s":"dp","at":[0,4],"v":0},{"s":"dp","at":[0,7],"v":0}],"ln":74,"note":"taking item 1 beats skipping it (4 \u003e 0)"},
+    {"t":"set","s":"dp","at":[1,8],"from":0,"to":4,"expr":"4 + dp[0][5]","deps":[{"s":"dp","at":[0,5],"v":0},{"s":"dp","at":[0,8],"v":0}],"ln":74,"note":"taking item 1 beats skipping it (4 \u003e 0)"},
+    {"t":"set","s":"dp","at":[2,0],"from":0,"to":0,"expr":"dp[1][0]","deps":[{"s":"dp","at":[1,0],"v":0}],"ln":66,"note":"item 2 weighs 4, which does not fit in 0"},
+    {"t":"set","s":"dp","at":[2,1],"from":0,"to":0,"expr":"dp[1][1]","deps":[{"s":"dp","at":[1,1],"v":0}],"ln":66,"note":"item 2 weighs 4, which does not fit in 1"},
+    {"t":"set","s":"dp","at":[2,2],"from":0,"to":0,"expr":"dp[1][2]","deps":[{"s":"dp","at":[1,2],"v":0}],"ln":66,"note":"item 2 weighs 4, which does not fit in 2"},
+    {"t":"set","s":"dp","at":[2,3],"from":0,"to":4,"expr":"dp[1][3]","deps":[{"s":"dp","at":[1,3],"v":4}],"ln":66,"note":"item 2 weighs 4, which does not fit in 3"},
+    {"t":"set","s":"dp","at":[2,4],"from":0,"to":5,"expr":"5 + dp[1][0]","deps":[{"s":"dp","at":[1,0],"v":0},{"s":"dp","at":[1,4],"v":4}],"ln":74,"note":"taking item 2 beats skipping it (5 \u003e 4)"},
+    {"t":"set","s":"dp","at":[2,5],"from":0,"to":5,"expr":"5 + dp[1][1]","deps":[{"s":"dp","at":[1,1],"v":0},{"s":"dp","at":[1,5],"v":4}],"ln":74,"note":"taking item 2 beats skipping it (5 \u003e 4)"},
+    {"t":"set","s":"dp","at":[2,6],"from":0,"to":5,"expr":"5 + dp[1][2]","deps":[{"s":"dp","at":[1,2],"v":0},{"s":"dp","at":[1,6],"v":4}],"ln":74,"note":"taking item 2 beats skipping it (5 \u003e 4)"},
+    {"t":"set","s":"dp","at":[2,7],"from":0,"to":9,"expr":"5 + dp[1][3]","deps":[{"s":"dp","at":[1,3],"v":4},{"s":"dp","at":[1,7],"v":4}],"ln":74,"note":"taking item 2 beats skipping it (9 \u003e 4)"},
+    {"t":"set","s":"dp","at":[2,8],"from":0,"to":9,"expr":"5 + dp[1][4]","deps":[{"s":"dp","at":[1,4],"v":4},{"s":"dp","at":[1,8],"v":4}],"ln":74,"note":"taking item 2 beats skipping it (9 \u003e 4)"},
+    {"t":"set","s":"dp","at":[3,0],"from":0,"to":0,"expr":"dp[2][0]","deps":[{"s":"dp","at":[2,0],"v":0}],"ln":66,"note":"item 3 weighs 5, which does not fit in 0"},
+    {"t":"set","s":"dp","at":[3,1],"from":0,"to":0,"expr":"dp[2][1]","deps":[{"s":"dp","at":[2,1],"v":0}],"ln":66,"note":"item 3 weighs 5, which does not fit in 1"},
+    {"t":"set","s":"dp","at":[3,2],"from":0,"to":0,"expr":"dp[2][2]","deps":[{"s":"dp","at":[2,2],"v":0}],"ln":66,"note":"item 3 weighs 5, which does not fit in 2"},
+    {"t":"set","s":"dp","at":[3,3],"from":0,"to":4,"expr":"dp[2][3]","deps":[{"s":"dp","at":[2,3],"v":4}],"ln":66,"note":"item 3 weighs 5, which does not fit in 3"},
+    {"t":"set","s":"dp","at":[3,4],"from":0,"to":5,"expr":"dp[2][4]","deps":[{"s":"dp","at":[2,4],"v":5}],"ln":66,"note":"item 3 weighs 5, which does not fit in 4"},
+    {"t":"set","s":"dp","at":[3,5],"from":0,"to":6,"expr":"6 + dp[2][0]","deps":[{"s":"dp","at":[2,0],"v":0},{"s":"dp","at":[2,5],"v":5}],"ln":74,"note":"taking item 3 beats skipping it (6 \u003e 5)"},
+    {"t":"set","s":"dp","at":[3,6],"from":0,"to":6,"expr":"6 + dp[2][1]","deps":[{"s":"dp","at":[2,1],"v":0},{"s":"dp","at":[2,6],"v":5}],"ln":74,"note":"taking item 3 beats skipping it (6 \u003e 5)"},
+    {"t":"set","s":"dp","at":[3,7],"from":0,"to":9,"expr":"dp[2][7]","deps":[{"s":"dp","at":[2,7],"v":9},{"s":"dp","at":[2,2],"v":0}],"ln":79,"note":"skipping item 3 is at least as good (9 \u003e= 6)"},
+    {"t":"set","s":"dp","at":[3,8],"from":0,"to":10,"expr":"6 + dp[2][3]","deps":[{"s":"dp","at":[2,3],"v":4},{"s":"dp","at":[2,8],"v":9}],"ln":74,"note":"taking item 3 beats skipping it (10 \u003e 9)"},
+    {"t":"set","s":"dp","at":[4,0],"from":0,"to":0,"expr":"dp[3][0]","deps":[{"s":"dp","at":[3,0],"v":0}],"ln":66,"note":"item 4 weighs 2, which does not fit in 0"},
+    {"t":"set","s":"dp","at":[4,1],"from":0,"to":0,"expr":"dp[3][1]","deps":[{"s":"dp","at":[3,1],"v":0}],"ln":66,"note":"item 4 weighs 2, which does not fit in 1"},
+    {"t":"set","s":"dp","at":[4,2],"from":0,"to":3,"expr":"3 + dp[3][0]","deps":[{"s":"dp","at":[3,0],"v":0},{"s":"dp","at":[3,2],"v":0}],"ln":74,"note":"taking item 4 beats skipping it (3 \u003e 0)"},
+    {"t":"set","s":"dp","at":[4,3],"from":0,"to":4,"expr":"dp[3][3]","deps":[{"s":"dp","at":[3,3],"v":4},{"s":"dp","at":[3,1],"v":0}],"ln":79,"note":"skipping item 4 is at least as good (4 \u003e= 3)"},
+    {"t":"set","s":"dp","at":[4,4],"from":0,"to":5,"expr":"dp[3][4]","deps":[{"s":"dp","at":[3,4],"v":5},{"s":"dp","at":[3,2],"v":0}],"ln":79,"note":"skipping item 4 is at least as good (5 \u003e= 3)"},
+    {"t":"set","s":"dp","at":[4,5],"from":0,"to":7,"expr":"3 + dp[3][3]","deps":[{"s":"dp","at":[3,3],"v":4},{"s":"dp","at":[3,5],"v":6}],"ln":74,"note":"taking item 4 beats skipping it (7 \u003e 6)"},
+    {"t":"set","s":"dp","at":[4,6],"from":0,"to":8,"expr":"3 + dp[3][4]","deps":[{"s":"dp","at":[3,4],"v":5},{"s":"dp","at":[3,6],"v":6}],"ln":74,"note":"taking item 4 beats skipping it (8 \u003e 6)"},
+    {"t":"set","s":"dp","at":[4,7],"from":0,"to":9,"expr":"dp[3][7]","deps":[{"s":"dp","at":[3,7],"v":9},{"s":"dp","at":[3,5],"v":6}],"ln":79,"note":"skipping item 4 is at least as good (9 \u003e= 9)"},
+    {"t":"set","s":"dp","at":[4,8],"from":0,"to":10,"expr":"dp[3][8]","deps":[{"s":"dp","at":[3,8],"v":10},{"s":"dp","at":[3,6],"v":6}],"ln":79,"note":"skipping item 4 is at least as good (10 \u003e= 9)"}
+  ]
+}

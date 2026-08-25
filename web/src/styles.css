@@ -1,0 +1,433 @@
+/* =========================================================================
+   Orrery design system.  The implementation of workshop/UI_DESIGN.md.
+
+   Thesis: a precision instrument, not a toy. Reference points are an
+   oscilloscope, a debugger's watch window and a well-set mathematics
+   textbook. Dense but calm; hairline borders instead of shadows; no
+   gradients; saturated colour used only where it MEANS something.
+
+   Three rules that resolve most later arguments:
+     1. Colour carries meaning, never decoration.
+     2. The data is the brightest thing on screen; chrome recedes.
+     3. Motion explains causality -- something moves only when the movement
+        itself is the information.
+   ========================================================================= */
+
+:root {
+  /* --- ground: dark (default) --- */
+  --bg:            #0E1116;
+  --surface:       #161B22;
+  --surface-raise: #1C232C;
+  --surface-sink:  #0B0E12;
+  --border:        #262E39;
+  --border-strong: #38424F;
+  --text:          #E6EDF3;
+  --text-dim:      #9AA5B1;
+  --text-mute:     #6B7684;
+
+  /* --- semantic accents: ONE COLOUR, ONE MEANING, EVERYWHERE ---
+     Amber always means "written on this step". Cyan always means "read to
+     produce that write". That consistency is what makes five different
+     renderers feel like one instrument: a user who learns the grid can read
+     the recursion tree without being taught. */
+  --write:   #F0B429;   /* written on this step        */
+  --read:    #4FC3F7;   /* read to produce it          */
+  --cursor:  #A78BFA;   /* a pointer / index / frontier */
+  --settled: #5BD8A6;   /* done, visited, final answer  */
+  --pruned:  #F1707F;   /* failed branch, backtracked   */
+  --inert:   #3A424D;   /* exists, not participating    */
+
+  --font-ui:   "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --t-xs: 11px; --t-sm: 12px; --t-md: 13px;
+  --t-lg: 15px; --t-xl: 20px; --t-2xl: 28px;
+
+  --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
+  --s5: 24px; --s6: 32px; --s7: 48px;
+
+  --r-cell: 4px; --r-chip: 3px; --r-panel: 8px; --r-pill: 999px;
+
+  --cell: 44px;
+  --node-r: 20px;
+  --stroke: 1.5px;
+
+  /* Three durations. Nothing else. */
+  --d-flash: 120ms;
+  --d-step:  240ms;
+  --d-view:  400ms;
+  --ease:    cubic-bezier(0.2, 0.8, 0.2, 1);
+
+  --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+}
+
+:root[data-theme="light"] {
+  --bg:            #FBFCFD;
+  --surface:       #FFFFFF;
+  --surface-raise: #F4F6F8;
+  --surface-sink:  #F0F3F6;
+  --border:        #DDE3EA;
+  --border-strong: #C2CBD6;
+  --text:          #12171D;
+  --text-dim:      #4E5966;
+  --text-mute:     #78838F;
+
+  --write:   #B77500;
+  --read:    #0673A8;
+  --cursor:  #6D42D9;
+  --settled: #127A55;
+  --pruned:  #C0293C;
+  --inert:   #9AA5B1;
+
+  --shadow-pop: 0 8px 24px -4px rgb(16 24 40 / 0.12), 0 2px 6px -2px rgb(16 24 40 / 0.08);
+}
+
+/* Motion is information. When someone has asked for less of it, nothing
+   becomes invisible -- things stop moving, and the flash becomes a longer
+   static outline instead. */
+@media (prefers-reduced-motion: reduce) {
+  :root { --d-step: 1ms; --d-view: 1ms; --d-flash: 1ms; }
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-ui);
+  font-size: var(--t-md);
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Every number is monospace with tabular figures. Not fussiness: in a DP grid,
+   proportional digits make columns shimmer as values go from 1 to 11, and the
+   eye reads that as instability. This is the cheapest single thing that makes
+   the grid look professional. */
+.num, .mono {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+button {
+  font: inherit; color: inherit; background: none;
+  border: 1px solid transparent; border-radius: var(--r-chip);
+  padding: var(--s1) var(--s2); cursor: pointer;
+}
+button:hover:not(:disabled) { background: var(--surface-raise); }
+button:disabled { opacity: 0.4; cursor: default; }
+button:focus-visible, select:focus-visible, input:focus-visible, [tabindex]:focus-visible {
+  outline: 2px solid var(--cursor); outline-offset: 2px;
+}
+
+input, select {
+  font: inherit; color: var(--text);
+  background: var(--surface-sink);
+  border: 1px solid var(--border);
+  border-radius: var(--r-chip);
+  padding: var(--s1) var(--s2);
+}
+
+/* ---------------------------------------------------------------- shell -- */
+
+.app { display: grid; grid-template-rows: 56px 1fr 64px; height: 100%; }
+
+.topbar {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: 0 var(--s4);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.logo { display: flex; align-items: center; gap: var(--s2); font-weight: 600; letter-spacing: -0.01em; }
+.logo svg { width: 20px; height: 20px; }
+
+.spacer { flex: 1; }
+
+.workspace { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+@media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; } }
+
+.panes { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.panes.split-h { flex-direction: row; }
+
+.sidepanel {
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+}
+@media (max-width: 1100px) { .sidepanel { display: none; } }
+
+/* ----------------------------------------------------------------- pane -- */
+
+.pane { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0;
+        border-bottom: 1px solid var(--border); }
+/* A recursion tree needs room; a one-row memo table does not. Weighting the
+   panes by what they hold beats an even split, and it is one line. */
+.pane[data-family="recursionTree"] { flex: 2.2; }
+.pane[data-family="graph"]         { flex: 2; }
+.pane[data-family="callStack"]     { flex: 0.7; }
+.pane:last-child { border-bottom: none; }
+
+.pane-head {
+  display: flex; align-items: center; gap: var(--s2);
+  padding: var(--s2) var(--s3);
+  font-size: var(--t-xs); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-mute);
+  border-bottom: 1px solid var(--border);
+}
+.pane-head .title { color: var(--text-dim); letter-spacing: 0.04em; }
+.pane-body { flex: 1; overflow: auto; padding: var(--s4); min-height: 0; }
+.pane-note { color: var(--text-mute); font-size: var(--t-sm); margin: 0 0 var(--s2); }
+
+.section-head {
+  padding: var(--s2) var(--s3);
+  font-size: var(--t-xs); letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-mute);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; gap: var(--s2);
+}
+
+/* ----------------------------------------------------- linear + grid ----- */
+
+.linear { display: inline-flex; flex-direction: column; gap: var(--s1); }
+.linear-row { display: flex; gap: 4px; }
+.linear-rail { display: flex; gap: 4px; }
+.linear-rail span {
+  width: var(--cw); text-align: center;
+  font-size: var(--t-xs); color: var(--text-mute);
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+}
+
+.cell, .gcell {
+  width: var(--cw, var(--cell)); height: var(--cw, var(--cell));
+  display: flex; align-items: center; justify-content: center;
+  background: var(--surface-raise);
+  border: 1px solid var(--border);
+  border-radius: var(--r-cell);
+  font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+  font-size: var(--t-lg);
+  transition: background-color var(--d-step) var(--ease),
+              border-color var(--d-step) var(--ease),
+              box-shadow var(--d-step) var(--ease);
+}
+
+/* Semantic states. Note that each has a SHAPE as well as a colour -- roughly
+   1 in 12 men has a colour vision deficiency and amber/green is exactly the
+   confusable pair, so "written" is a ring and "settled" is a fill. */
+.cell[data-w="1"], .gcell[data-w="1"] {
+  border-color: var(--write);
+  box-shadow: inset 0 0 0 1px var(--write);
+  background: color-mix(in srgb, var(--write) 14%, var(--surface-raise));
+  animation: flash var(--d-flash) var(--ease);
+}
+.cell[data-r="1"], .gcell[data-r="1"] {
+  border-bottom: 2px dotted var(--read);
+  background: color-mix(in srgb, var(--read) 8%, var(--surface-raise));
+}
+.cell[data-settled="1"], .gcell[data-settled="1"] {
+  background: color-mix(in srgb, var(--settled) 18%, var(--surface-raise));
+}
+.cell[data-cursor="1"] { border-top: 2px solid var(--cursor); }
+.gcell[data-linked="1"], .cell[data-linked="1"] { box-shadow: 0 0 0 2px var(--read); }
+/* "Computed 0" must not look identical to "still 0", or the fill order -- the
+   whole point of watching a DP table -- is invisible. */
+.gcell[data-filled="0"] { color: var(--text-mute); }
+.gcell[data-trail] { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--write) 55%, transparent); }
+
+@keyframes flash {
+  from { background: color-mix(in srgb, var(--write) 45%, var(--surface-raise)); }
+}
+
+.grid { border-collapse: separate; border-spacing: 4px; }
+.grid th {
+  font-weight: 500; font-size: var(--t-sm); color: var(--text-mute);
+  font-family: var(--font-mono);
+  padding: 0 var(--s1); text-align: center; min-width: var(--cell);
+}
+.grid th.rowhead { text-align: right; padding-right: var(--s2); }
+
+.chips { position: relative; height: 20px; }
+.chip {
+  position: absolute; top: 0;
+  transform: translateX(var(--x));
+  transition: transform var(--d-step) var(--ease);
+  font-size: var(--t-xs); font-family: var(--font-mono);
+  color: var(--cursor);
+  border: 1px solid color-mix(in srgb, var(--cursor) 45%, transparent);
+  border-radius: var(--r-chip);
+  padding: 0 4px; background: var(--bg);
+  white-space: nowrap;
+}
+.chip.stack1 { top: 20px; }
+.chip.stack2 { top: 40px; }
+.chip[data-parked="1"] { color: var(--text-mute); border-color: var(--border); }
+
+.region-bands { position: relative; height: 6px; }
+.band {
+  position: absolute; height: 3px; border-radius: var(--r-pill); top: 2px;
+  transition: left var(--d-step) var(--ease), width var(--d-step) var(--ease);
+}
+.band[data-style="settled"] { background: color-mix(in srgb, var(--settled) 60%, transparent); }
+.band[data-style="cursor"]  { background: color-mix(in srgb, var(--cursor) 55%, transparent); }
+
+/* --------------------------------------------------------- call stack ---- */
+
+.callstack { list-style: none; margin: 0; padding: 0; }
+.frame {
+  display: flex; align-items: baseline; gap: var(--s2);
+  padding: var(--s1) var(--s3);
+  font-family: var(--font-mono); font-size: var(--t-sm);
+  border-left: 2px solid transparent;
+  color: var(--text-dim); cursor: pointer;
+}
+.frame:hover { background: var(--surface-raise); }
+.frame[data-top="1"] { border-left-color: var(--cursor); color: var(--text); }
+.frame[data-linked="1"] { background: color-mix(in srgb, var(--read) 12%, transparent); }
+.frame .idx { margin-left: auto; color: var(--text-mute); font-size: var(--t-xs); }
+.frame-gap { padding: var(--s1) var(--s3); color: var(--text-mute); font-size: var(--t-xs); }
+.ret-ghost {
+  padding: var(--s1) var(--s3); font-family: var(--font-mono); font-size: var(--t-sm);
+  color: var(--settled); border-left: 2px solid transparent;
+}
+
+/* ------------------------------------------------------ recursion tree --- */
+
+.rtree { width: 100%; height: 100%; display: block; }
+.rtree .edge { stroke: var(--border-strong); stroke-width: 1; fill: none; opacity: 0.6; }
+.rtree .edge[data-live="1"] { stroke: var(--cursor); stroke-width: 2.5; opacity: 1; }
+.rtree .node rect {
+  fill: var(--surface-raise); stroke: var(--border); rx: 4;
+  transition: fill var(--d-step) var(--ease), stroke var(--d-step) var(--ease);
+}
+.rtree .node text {
+  font-family: var(--font-mono); font-size: 11px; fill: var(--text-dim);
+  text-anchor: middle; dominant-baseline: middle;
+}
+.rtree .node[data-state="live"] rect  { stroke: var(--cursor); stroke-width: 2; }
+.rtree .node[data-state="live"] text  { fill: var(--text); }
+.rtree .node[data-state="ok"] rect    { fill: color-mix(in srgb, var(--settled) 22%, var(--surface-raise)); }
+.rtree .node[data-state="fail"] rect  { stroke: var(--pruned); stroke-dasharray: 3 2; }
+.rtree .node[data-state="fail"]       { opacity: 0.55; }
+.rtree .node[data-memo="1"] rect      { stroke: var(--read); stroke-dasharray: 3 2; }
+.rtree .node[data-memo="1"] text      { fill: var(--read); }
+.rtree .node[data-linked="1"] rect    { stroke: var(--read); stroke-width: 2.5; }
+.rtree .node.enter                    { animation: nodeIn var(--d-step) var(--ease); }
+.rtree .citation {
+  stroke: var(--read); stroke-width: 1.5; stroke-dasharray: 4 3; fill: none;
+  animation: dash var(--d-step) var(--ease);
+}
+@keyframes nodeIn { from { opacity: 0; transform: scale(0.85); } }
+@keyframes dash   { from { stroke-dashoffset: 40; } }
+
+.minimap { pointer-events: all; cursor: pointer; }
+.minimap rect.bg { fill: var(--surface-sink); stroke: var(--border); }
+.minimap rect.vp { fill: none; stroke: var(--cursor); stroke-width: 1; }
+.minimap circle  { fill: var(--text-mute); }
+.minimap circle.on { fill: var(--cursor); }
+
+/* ------------------------------------------------------------ code ------- */
+
+.codepane { font-family: var(--font-mono); font-size: var(--t-sm); background: var(--surface-sink);
+            flex: 1; overflow: auto; min-height: 0; }
+.codeline { display: flex; gap: var(--s3); padding: 0 var(--s3); white-space: pre; cursor: pointer; }
+.codeline:hover { background: var(--surface-raise); }
+.codeline .n { color: var(--text-mute); width: 3ch; text-align: right; flex: none; }
+.codeline .t { color: var(--text-dim); }
+.codeline[data-cur="1"] { background: color-mix(in srgb, var(--write) 14%, transparent); }
+.codeline[data-cur="1"] .t { color: var(--text); }
+.codeline[data-cur="1"] .n { color: var(--write); }
+.codeline[data-hasstep="1"] .n { color: var(--text-dim); }
+
+/* --------------------------------------------------------- explain ------- */
+
+.explain { padding: var(--s3); border-bottom: 1px solid var(--border); }
+.explain .lead { font-family: var(--font-mono); font-size: var(--t-lg); color: var(--text); }
+.explain .because { margin-top: var(--s2); color: var(--text-dim); }
+.explain .because .expr { font-family: var(--font-mono); color: var(--write); }
+.explain .where { margin-top: var(--s2); font-size: var(--t-sm); color: var(--text-mute); }
+.explain .where b { font-family: var(--font-mono); font-weight: 400; color: var(--read); }
+.explain .idle { color: var(--text-mute); }
+
+/* -------------------------------------------------------- transport ------ */
+
+.transport {
+  display: flex; align-items: center; gap: var(--s3);
+  padding: 0 var(--s4);
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+.transport .btns { display: flex; gap: var(--s1); }
+.transport .btns button {
+  width: 34px; height: 30px; display: grid; place-items: center;
+  border: 1px solid var(--border); background: var(--surface-raise);
+}
+.transport .btns button.play { width: 44px; }
+.counter { font-family: var(--font-mono); font-variant-numeric: tabular-nums;
+           color: var(--text-dim); font-size: var(--t-sm); white-space: nowrap; }
+.scrub { flex: 1; accent-color: var(--cursor); min-width: 80px; }
+.seg { display: flex; border: 1px solid var(--border); border-radius: var(--r-chip); overflow: hidden; }
+.seg button { border: none; border-radius: 0; padding: var(--s1) var(--s2); font-size: var(--t-sm); }
+.seg button[aria-pressed="true"] { background: var(--surface-raise); color: var(--text); }
+
+/* ---------------------------------------------------------- banner ------- */
+
+.banner {
+  display: flex; gap: var(--s3); align-items: flex-start;
+  padding: var(--s3) var(--s4);
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--write) 10%, var(--surface));
+  font-size: var(--t-sm);
+}
+.banner .mark { color: var(--write); font-size: var(--t-lg); line-height: 1; }
+.banner.err { background: color-mix(in srgb, var(--pruned) 12%, var(--surface)); }
+.banner.err .mark { color: var(--pruned); }
+.banner button { text-decoration: underline; padding: 0; }
+
+/* ------------------------------------------------------ empty state ------ */
+
+.empty { display: grid; place-items: center; height: 100%; padding: var(--s7); }
+.empty-inner { max-width: 760px; text-align: center; }
+.empty h1 { font-size: var(--t-2xl); font-weight: 500; letter-spacing: -0.01em; margin: 0 0 var(--s3); }
+.empty p  { color: var(--text-dim); margin: 0 0 var(--s6); font-size: var(--t-lg); }
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--s3); }
+.card {
+  border: 1px solid var(--border); border-radius: var(--r-panel);
+  background: var(--surface); padding: var(--s3);
+  text-align: left; cursor: pointer;
+  transition: border-color var(--d-step) var(--ease);
+}
+.card:hover { border-color: var(--border-strong); background: var(--surface-raise); }
+.card .t { font-weight: 500; }
+.card .m { color: var(--text-mute); font-size: var(--t-xs); margin-top: 2px;
+           font-family: var(--font-mono); }
+
+/* ------------------------------------------------------- fallback -------- */
+
+.fallback details { margin-bottom: var(--s2); }
+.fallback summary { cursor: pointer; color: var(--text-dim); font-size: var(--t-sm); }
+.fallback summary .dim { color: var(--text-mute); }
+.fbrow { display: flex; gap: var(--s3); font-family: var(--font-mono); font-size: var(--t-sm);
+         padding: 1px var(--s3); }
+.fbrow .k { color: var(--text-mute); min-width: 12ch; }
+.fbrow[data-w="1"] { background: color-mix(in srgb, var(--write) 16%, transparent); }
+.fbrow[data-r="1"] .v { border-bottom: 1px dotted var(--read); }
+
+.dlg { display: grid; gap: var(--s2); font-size: var(--t-sm); }
+.diag { font-family: var(--font-mono); font-size: var(--t-sm); }
+.diag[data-sev="error"] { color: var(--pruned); }
+.diag[data-sev="warning"] { color: var(--write); }
+
+.shortcuts { position: fixed; inset: 0; display: grid; place-items: center;
+             background: rgb(0 0 0 / 0.5); z-index: 20; }
+.shortcuts .box { background: var(--surface); border: 1px solid var(--border-strong);
+                  border-radius: var(--r-panel); box-shadow: var(--shadow-pop);
+                  padding: var(--s5); min-width: 320px; }
+.shortcuts kbd { font-family: var(--font-mono); background: var(--surface-raise);
+                 border: 1px solid var(--border); border-radius: 3px; padding: 0 5px; }
+.shortcuts table { border-collapse: collapse; width: 100%; }
+.shortcuts td { padding: 3px 0; }
+.shortcuts td:last-child { color: var(--text-dim); padding-left: var(--s4); }

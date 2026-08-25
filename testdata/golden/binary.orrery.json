@@ -1,0 +1,76 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "binary",
+    "title": "Binary Search",
+    "lang": "go",
+    "input": {
+      "target": 21,
+      "values": [
+        2,
+        5,
+        8,
+        13,
+        21,
+        34,
+        55,
+        89
+      ]
+    },
+    "source": {
+      "path": "internal/algos/searching/binary.go",
+      "text": "package searching\n\nimport (\n\t_ \"embed\"\n\t\"sort\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed binary.go\nvar binarySrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"binary\",\n\t\tTitle:  \"Binary Search\",\n\t\tFamily: \"Searching\",\n\t\tBlurb:  \"Halve the range until the target is cornered.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"values\", Kind: \"intList\", Max: 16,\n\t\t\t\tDefault: []int{2, 5, 8, 13, 21, 34, 55, 89},\n\t\t\t\tHelp:    \"sorted automatically\"},\n\t\t\t{Name: \"target\", Kind: \"int\", Min: -999, Max: 999, Default: 21},\n\t\t},\n\t\tDefaults: algos.Args{\"values\": []int{2, 5, 8, 13, 21, 34, 55, 89}, \"target\": 21},\n\t\tSource:   trace.Source{Path: \"internal/algos/searching/binary.go\", Text: binarySrc, FirstLine: 1},\n\t\tTags:     []string{\"linear\", \"cursors\", \"logarithmic\"},\n\t\tRun:      runBinary,\n\t})\n}\n\n// BINARY SEARCH IS THE CASE THAT BREAKS THE NAIVE GRANULARITY RULE, and it is\n// in the Tier 1 set precisely for that reason.\n//\n// On eight elements it performs three comparisons and ZERO writes to the array.\n// Under \"one step = one write\" its trace would be empty and the algorithm would\n// be invisible. Every step you see below is a write to lo / mid / hi -- aux\n// CURSOR STRUCTURES that exist only to make a read observable.\n//\n// The cost is honest and worth stating: nothing detects a missing cursor. An\n// algorithm instrumented without them produces a valid, well-formed, useless\n// trace. See FLAWS.md 1.\nfunc runBinary(tr *tracer.Tracer, args algos.Args) error {\n\tvals := append([]int(nil), args.Ints(\"values\")...)\n\tsort.Ints(vals)\n\ttarget := args.Int(\"target\")\n\tn := len(vals)\n\n\ta := tr.Array(\"a\", n, 0)\n\ta.Fill(vals)\n\n\tlo := tr.Scalar(\"lo\", 0).Aux()\n\thi := tr.Scalar(\"hi\", n-1).Aux()\n\tmid := tr.Scalar(\"mid\", -1).Aux()\n\tfound := tr.Scalar(\"found\", -1).Aux()\n\n\ttr.View(\"linear\", \"a\", 0,\n\t\ttracer.Title(\"sorted array\"),\n\t\ttracer.Opt(\"cursors\", []any{\"lo\", \"mid\", \"hi\"}),\n\t\ttracer.Opt(\"regions\", []any{\n\t\t\tmap[string]any{\"name\": \"live\", \"from\": \"lo\", \"to\": \"hi\", \"style\": \"cursor\"},\n\t\t}))\n\n\t// NOTE: these cursor writes are level 0, not level 1 -- unlike bubble sort's\n\t// scan pointers, which are level 1. The difference is the whole judgement\n\t// call: in bubble sort the swaps are the algorithm and the pointers are\n\t// detail, so hiding them still leaves something to watch. Here there are NO\n\t// writes to the array at all, so filtering the cursors would leave an empty\n\t// trace. Same mechanism, opposite call.\n\tl, h := 0, n-1\n\tfor l \u003c= h {\n\t\tm := (l + h) / 2\n\t\tmid.Set(m).\n\t\t\tBecause(\"(lo + hi) / 2 = (%d + %d) / 2\", l, h).\n\t\t\tFrom(lo.Cell(), hi.Cell())\n\n\t\tv := a.Int(m)\n\t\tswitch {\n\t\tcase v == target:\n\t\t\tfound.Set(m).\n\t\t\t\tBecause(\"a[%d] == %d\", m, target).\n\t\t\t\tFrom(a.Cell(m)).\n\t\t\t\tNote(\"found %d at index %d\", target, m)\n\t\t\treturn tr.Err()\n\t\tcase v \u003c target:\n\t\t\tl = m + 1\n\t\t\tlo.Set(l).\n\t\t\t\tBecause(\"a[%d] = %d \u003c %d, so discard everything left of %d\", m, v, target, l).\n\t\t\t\tFrom(a.Cell(m))\n\t\tdefault:\n\t\t\th = m - 1\n\t\t\thi.Set(h).\n\t\t\t\tBecause(\"a[%d] = %d \u003e %d, so discard everything right of %d\", m, v, target, h).\n\t\t\t\tFrom(a.Cell(m))\n\t\t}\n\t}\n\tfound.Set(-1).Note(\"%d is not in the array -- lo passed hi\", target)\n\treturn tr.Err()\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "linear",
+        "s": "a",
+        "pane": 0,
+        "title": "sorted array",
+        "options": {
+          "cursors": [
+            "lo",
+            "mid",
+            "hi"
+          ],
+          "regions": [
+            {
+              "from": "lo",
+              "name": "live",
+              "style": "cursor",
+              "to": "hi"
+            }
+          ]
+        }
+      }
+    ],
+    "counts": {
+      "events": 19,
+      "steps": 12,
+      "structs": 5
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"a","kind":"array","dims":[8],"fill":0,"ln":51},
+    {"t":"set","s":"a","at":[0],"from":0,"to":2,"ln":52,"g":1,"note":"input"},
+    {"t":"set","s":"a","at":[1],"from":0,"to":5,"ln":52,"g":1},
+    {"t":"set","s":"a","at":[2],"from":0,"to":8,"ln":52,"g":1},
+    {"t":"set","s":"a","at":[3],"from":0,"to":13,"ln":52,"g":1},
+    {"t":"set","s":"a","at":[4],"from":0,"to":21,"ln":52,"g":1},
+    {"t":"set","s":"a","at":[5],"from":0,"to":34,"ln":52,"g":1},
+    {"t":"set","s":"a","at":[6],"from":0,"to":55,"ln":52,"g":1},
+    {"t":"set","s":"a","at":[7],"from":0,"to":89,"ln":52,"g":1},
+    {"t":"init","s":"lo","kind":"scalar","fill":0,"aux":true,"ln":54},
+    {"t":"init","s":"hi","kind":"scalar","fill":7,"aux":true,"ln":55},
+    {"t":"init","s":"mid","kind":"scalar","fill":-1,"aux":true,"ln":56},
+    {"t":"init","s":"found","kind":"scalar","fill":-1,"aux":true,"ln":57},
+    {"t":"set","s":"mid","at":[],"from":-1,"to":3,"expr":"(lo + hi) / 2 = (0 + 7) / 2","deps":[{"s":"lo","at":[],"v":0},{"s":"hi","at":[],"v":7}],"ln":75},
+    {"t":"set","s":"lo","at":[],"from":0,"to":4,"expr":"a[3] = 13 \u003c 21, so discard everything left of 4","deps":[{"s":"a","at":[3],"v":13}],"ln":89},
+    {"t":"set","s":"mid","at":[],"from":3,"to":5,"expr":"(lo + hi) / 2 = (4 + 7) / 2","deps":[{"s":"lo","at":[],"v":4},{"s":"hi","at":[],"v":7}],"ln":75},
+    {"t":"set","s":"hi","at":[],"from":7,"to":4,"expr":"a[5] = 34 \u003e 21, so discard everything right of 4","deps":[{"s":"a","at":[5],"v":34}],"ln":94},
+    {"t":"set","s":"mid","at":[],"from":5,"to":4,"expr":"(lo + hi) / 2 = (4 + 4) / 2","deps":[{"s":"lo","at":[],"v":4},{"s":"hi","at":[],"v":4}],"ln":75},
+    {"t":"set","s":"found","at":[],"from":-1,"to":4,"expr":"a[4] == 21","deps":[{"s":"a","at":[4],"v":21}],"ln":82,"note":"found 21 at index 4"}
+  ]
+}
