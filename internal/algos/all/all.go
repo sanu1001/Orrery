@@ -12,4 +12,5 @@ import (
 	_ "github.com/sanu1001/orrery/internal/algos/dp"
 	_ "github.com/sanu1001/orrery/internal/algos/searching"
 	_ "github.com/sanu1001/orrery/internal/algos/sorting"
+	_ "github.com/sanu1001/orrery/internal/algos/trees"
 )

@@ -56,13 +56,13 @@ internal/trace/     THE FORMAT. stdlib-only — deps_test.go enforces that.
 internal/tracer/    The recording API algorithms write against.
 internal/replay/    The Go player. Exists to test the tracer and to prove the
                     JS player correct. Not a production path.
-internal/algos/     12 algorithms. One file each, //go:embed of itself.
+internal/algos/     14 algorithms. One file each, //go:embed of itself.
 cmd/orrery/         CLI: trace | verify | hash | play | bench | ls | catalog
 cmd/orreryd/        HTTP server. NOT BUILT YET — see ../workshop/BACKEND.md
 
 web/src/lib/        validate (the trust boundary), value, explain
 web/src/player/     state, steps, prepass, store  — mirrors internal/trace
-web/src/render/     Linear, Grid, RecursionTree, Fallback, focus, layout/
+web/src/render/     Linear, Grid, RecursionTree, TreeView, Fallback, focus, layout/
 web/src/ui/         shell, transport, code pane, explain pane, panes
 ```
 
@@ -87,7 +87,7 @@ reads the version from `go.mod`, so the two cannot drift.
 make check      # what CI runs: vet + go test -race + conformance + JS tests
 make test       # go test -race ./...
 make conformance# Go player vs JS player, step by step, every golden trace
-make webtest    # tidy-tree properties + JS player tests
+make webtest    # tidy-tree properties + tree topology + JS player tests
 make traces     # regenerate web/public/traces/*.json + algorithms.json
 make golden     # regenerate testdata/golden/*.orrery.json, THEN READ THE DIFF
 make fuzz       # 60s on the decoder; it must never panic
@@ -189,7 +189,7 @@ has a spine thousands deep. Both walks in `tidyTree.js` use explicit stacks, and
   step. Cyan = read to produce it. Violet = a pointer. Green = settled. Rose =
   failed branch. Never use an accent for chrome.
 - **Golden fixtures are the review signal.** A format change shows up as a diff
-  across twelve committed files. `make golden` then **read the diff** — that is
+  across every committed fixture. `make golden` then **read the diff** — that is
   the feature, not the friction.
 
 ---
@@ -261,13 +261,18 @@ Tree and linked-list reuse `layout/tidyTree.js` completely unchanged.
 
 ## Current state
 
-Stage A is built and green. 12 algorithms, 4 renderer families plus the call
-stack pane, CLI including a terminal player, Go↔JS conformance over 581 step
-hashes.
+Stage A is built and green, plus C6 (the trace as a downloadable/droppable
+file) and B1 (the tree renderer). 14 algorithms, 5 renderer families plus the
+call stack pane, CLI including a terminal player, Go↔JS conformance over 651
+step hashes.
 
-Not built: `cmd/orreryd` (spec in `../workshop/BACKEND.md`), the tree /
-linked-list / graph renderers (specs in `../workshop/RENDERERS/`), and Stage B
-(spec in `../workshop/STAGE_B.md`).
+Not built: `cmd/orreryd` (spec in `../workshop/BACKEND.md`), the linked-list and
+graph renderers (specs in `../workshop/RENDERERS/`), and Stage B (spec in
+`../workshop/STAGE_B.md`).
+
+The tree renderer reuses `layout/tidyTree.js` unchanged; `render/layout/
+treeShape.js` holds the topology, including the cycle breaking that keeps a
+malformed tree from hanging the tab.
 
 `../workshop/IMPLEMENTATION_NOTES.md` is what changed when the design met real
 code. `../workshop/FLAWS.md` is what is genuinely weak — §13 is the interview

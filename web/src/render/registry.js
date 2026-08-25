@@ -12,13 +12,15 @@ import Fallback from './Fallback.jsx';
 import Linear from './Linear.jsx';
 import Grid from './Grid.jsx';
 import RecursionTree from './RecursionTree.jsx';
+import TreeView from './TreeView.jsx';
 
 export const FAMILIES = {
   fallback: Fallback,
   linear: Linear,
   grid: Grid,
   recursionTree: RecursionTree,
-  // Tier 2: tree, linkedList, graph. Specified in workshop/RENDERERS/.
+  tree: TreeView,
+  // Tier 2 remaining: linkedList, graph. Specified in workshop/RENDERERS/.
 };
 
 /** @param {string} family */
@@ -28,7 +30,7 @@ export function rendererFor(family) {
 
 /** Families that are specified but not built yet, so the pane can say so
  *  honestly instead of silently degrading. */
-export const PLANNED = new Set(['tree', 'linkedList', 'graph', 'callStack']);
+export const PLANNED = new Set(['linkedList', 'graph', 'callStack']);
 
 /**
  * Fallback family selection when meta.views is absent.

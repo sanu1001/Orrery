@@ -144,7 +144,7 @@ func coerce(f InputSpec, v any) (any, error) {
 			return nil, fmt.Errorf("must be at most %d characters", f.Max)
 		}
 		return s, nil
-	case "intList", "tree":
+	case "intList":
 		list, err := toIntList(v)
 		if err != nil {
 			return nil, err
@@ -153,6 +153,15 @@ func coerce(f InputSpec, v any) (any, error) {
 			return nil, fmt.Errorf("must have at most %d elements", f.Max)
 		}
 		return list, nil
+	case "tree":
+		toks, err := toTokens(v)
+		if err != nil {
+			return nil, err
+		}
+		if f.Max > 0 && len(toks) > f.Max {
+			return nil, fmt.Errorf("must have at most %d elements", f.Max)
+		}
+		return toks, nil
 	}
 	return v, nil
 }
@@ -167,6 +176,37 @@ func toInt(v any) (int, error) {
 		return int(t), nil
 	}
 	return 0, fmt.Errorf("must be a number")
+}
+
+// toTokens keeps LeetCode level-order tokens as []any so that a null survives.
+//
+// A null is a VALUE in that notation -- "no node here" -- not a missing token.
+// Coercing the list to []int drops them, and [1,null,2] silently becomes
+// [1,2], which is a different tree: 2 goes from being the right child of 1 to
+// being its left child. RENDERERS/TREE.md 2.
+func toTokens(v any) ([]any, error) {
+	switch t := v.(type) {
+	case []any:
+		out := make([]any, len(t))
+		for i, e := range t {
+			if e == nil {
+				continue // out[i] stays nil, which is the point
+			}
+			n, err := toInt(e)
+			if err != nil {
+				return nil, err
+			}
+			out[i] = n
+		}
+		return out, nil
+	case []int:
+		out := make([]any, len(t))
+		for i, e := range t {
+			out[i] = e
+		}
+		return out, nil
+	}
+	return nil, fmt.Errorf("must be a list of numbers and nulls")
 }
 
 func toIntList(v any) ([]int, error) {
@@ -217,4 +257,14 @@ func (a Args) Ints(k string) []int {
 		panic(fmt.Sprintf("algos: arg %q is %T, want []int", k, a[k]))
 	}
 	return l
+}
+
+// Tokens reads a "tree" input: level-order tokens where a nil element means
+// "no node here". Elements are int or nil, never anything else.
+func (a Args) Tokens(k string) []any {
+	t, err := toTokens(a[k])
+	if err != nil {
+		panic(fmt.Sprintf("algos: arg %q is %T, want a list of numbers and nulls", k, a[k]))
+	}
+	return t
 }

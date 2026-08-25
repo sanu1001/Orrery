@@ -78,7 +78,14 @@ export default function App() {
     // Tear down the previous store's timers, or a play loop keeps ticking
     // against a store nothing is rendering any more.
     setStore((old) => { old?.dispose?.(); return old; });
-    if (wantStep.current > 0) { s.seek(wantStep.current); wantStep.current = 0; }
+    if (wantStep.current > 0) {
+      // An explicit deep link beats the prologue skip: someone who shared
+      // step 3 meant step 3, even if step 3 is inside the construction.
+      s.seek(wantStep.current);
+      wantStep.current = 0;
+    } else if (s.startStep > 0) {
+      s.seek(s.startStep);
+    }
     rawText.current = text;
     setTrace(raw);
     setStore(s);

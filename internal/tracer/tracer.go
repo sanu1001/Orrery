@@ -266,6 +266,32 @@ func Title(s string) ViewOpt {
 	return func(v *trace.View) { v.Title = s }
 }
 
+// CallerLine reports the source line `skip` frames up, or 0 when that frame is
+// not in the algorithm's own embedded source.
+//
+// Exported for helpers that live OUTSIDE the algorithm file -- an input parser,
+// say. Without it such a helper stamps every event with a line in its own file,
+// the file-match guard suppresses it, and the code pane highlights nothing.
+// Array.Fill does exactly this internally; this is that, reachable.
+func (t *Tracer) CallerLine(skip int) int {
+	if _, file, line, ok := runtime.Caller(skip); ok && filepath.Base(file) == t.srcBase {
+		return line
+	}
+	return 0
+}
+
+// StartHere marks the CURRENT position as the end of the construction
+// prologue, so the player opens there rather than at event 0.
+//
+// Called after the input structure is built and before the algorithm runs,
+// which is why it takes the tracer rather than a number: hand-counting events
+// is the kind of thing that silently rots the first time a line is added to the
+// parser. RENDERERS/TREE.md 2.3.
+func StartHere(t *Tracer) ViewOpt {
+	n := len(t.events)
+	return func(v *trace.View) { v.StartEvent = n }
+}
+
 func Opt(key string, val any) ViewOpt {
 	return func(v *trace.View) {
 		if v.Options == nil {

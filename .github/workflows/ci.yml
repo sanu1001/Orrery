@@ -19,12 +19,12 @@ jobs:
         run: go vet ./...
 
       # Includes the golden-fixture check: any change to the trace format shows
-      # up here as a diff across twelve committed files.
+      # up here as a diff across every committed fixture.
       - name: go test
         run: go test -race ./...
 
       - name: js tests
-        run: cd web && node scripts/tidytree.test.mjs && node scripts/player.test.mjs
+        run: cd web && node scripts/tidytree.test.mjs && node scripts/tree.test.mjs && node scripts/player.test.mjs
 
       # The Go player and the JS player must agree at every step of every
       # golden trace.

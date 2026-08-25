@@ -45,6 +45,22 @@ export default function Transport({ store, version }) {
         ))}
       </div>
 
+      {/* Some traces open past a CONSTRUCTION PROLOGUE -- the writes that build
+          the input tree or list before the algorithm starts. Watching it is
+          clarifying once and tedious every time after, so the player starts
+          past it and this is the way back in. The prologue steps are ordinary
+          steps: rewinding into them is stepping, not a special mode.
+          RENDERERS/TREE.md 2.3. */}
+      {store.startStep > 0 && (
+        <button className="prologue" aria-pressed={at < store.startStep}
+                onClick={() => store.seek(at < store.startStep ? store.startStep : 0)}
+                title={at < store.startStep
+                  ? 'jump past the steps that build the input'
+                  : 'rewind to watch the input being built'}>
+          {at < store.startStep ? 'skip construction' : 'show construction'}
+        </button>
+      )}
+
       {/* Detail levels are one trace, filtered -- not two traces that drift.
           Sound only because lvl>0 is restricted to aux structures. ADR 0016. */}
       <div className="seg" role="group" aria-label="detail level" title="detail (d)">

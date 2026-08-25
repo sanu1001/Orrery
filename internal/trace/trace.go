@@ -81,6 +81,18 @@ type View struct {
 	Pane    any            `json:"pane"`   // 0 | 1 | "side"
 	Title   string         `json:"title,omitempty"`
 	Options map[string]any `json:"options,omitempty"` // family-specific, opaque elsewhere
+
+	// StartEvent is where the transport opens: the end of a CONSTRUCTION
+	// PROLOGUE, the run of writes that builds an input tree or list before the
+	// algorithm proper begins. Watching it is clarifying once and tedious
+	// afterwards, so the player starts past it and offers a way back.
+	//
+	// RENDERERS/TREE.md 2.3 calls this `startStep`, and it is deliberately an
+	// EVENT index instead: step boundaries are a function of grouping AND the
+	// viewer's detail level, so a producer cannot know them -- the same trace
+	// has different step numbers at level 0 and level 1. The consumer maps
+	// event to step, which it can always do. ADR 0019 (additive).
+	StartEvent int `json:"startEvent,omitempty"`
 }
 
 type Counts struct {

@@ -329,6 +329,72 @@ input, select {
 .minimap circle  { fill: var(--text-mute); }
 .minimap circle.on { fill: var(--cursor); }
 
+.prologue {
+  border: 1px solid var(--border); font-size: var(--t-sm);
+  color: var(--text-dim); white-space: nowrap;
+}
+.prologue[aria-pressed="true"] { color: var(--text); border-color: var(--border-strong); }
+
+/* -------------------------------------------------------------- tree ----- */
+
+/* The palette is the SAME palette, and that is the point: someone who learned
+   amber-means-written on the DP grid reads this pane without being taught it.
+   Nothing here invents a colour. */
+
+.tree { width: 100%; height: 100%; display: block; }
+.tree .edge { stroke: var(--border-strong); stroke-width: 1.5; fill: none; opacity: 0.75; }
+.tree .edge[data-bad="1"] { stroke: var(--pruned); stroke-dasharray: 3 2; opacity: 1; }
+.tree .edge.back {
+  stroke: var(--pruned); stroke-width: 1.5; stroke-dasharray: 5 3; fill: none;
+}
+.tree .edge-l {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--text-mute);
+  text-anchor: middle; dominant-baseline: middle;
+}
+
+/* The empty-slot dot. Small and dim on purpose -- it has to read as "nothing is
+   here" rather than as a node, while still being a mark you can point at. */
+.tree .slot { fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: 0.7; }
+
+.tree .tnode circle {
+  fill: var(--surface-raise); stroke: var(--border); stroke-width: var(--stroke);
+  transition: fill var(--d-step) var(--ease), stroke var(--d-step) var(--ease);
+}
+.tree .tnode text {
+  font-family: var(--font-mono); font-size: 12px; fill: var(--text-dim);
+  text-anchor: middle; dominant-baseline: middle;
+}
+.tree .tnode[data-w="1"] circle {
+  stroke: var(--write); stroke-width: 2.5;
+  fill: color-mix(in srgb, var(--write) 16%, var(--surface-raise));
+}
+.tree .tnode[data-w="1"] text { fill: var(--text); }
+.tree .tnode[data-r="1"] circle { stroke: var(--read); stroke-dasharray: 3 2; }
+/* Any named ref rings the node; `cur` is not special-cased, because the schema
+   decides what the refs are called and the renderer must not know. */
+.tree .tnode[data-ring]:not([data-ring=""]) circle { stroke: var(--cursor); stroke-width: 2.5; }
+.tree .tnode[data-ring]:not([data-ring=""]) text { fill: var(--text); }
+.tree .tnode[data-linked="1"] circle { stroke: var(--read); stroke-width: 2.5; }
+.tree .tnode[data-bad="1"] circle { stroke: var(--pruned); stroke-width: 2.5; }
+.tree .tnode.enter { animation: nodeIn var(--d-step) var(--ease); }
+.tree .tnode { cursor: pointer; }
+
+.tree .refchip {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--cursor);
+  text-anchor: middle; letter-spacing: 0.04em;
+}
+
+.tree .stub { fill: none; stroke: var(--pruned); stroke-dasharray: 2 2; }
+.tree .stub-t {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--pruned);
+  text-anchor: middle;
+}
+
+.tbadges text {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--text-mute);
+}
+.tbadges text[data-bad="1"] { fill: var(--pruned); }
+
 /* ------------------------------------------------------------ code ------- */
 
 .codepane { font-family: var(--font-mono); font-size: var(--t-sm); background: var(--surface-sink);

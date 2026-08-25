@@ -18,7 +18,7 @@
  */
 
 import { State } from './state.js';
-import { buildSteps } from './steps.js';
+import { buildSteps, stepIndexOf } from './steps.js';
 import { buildIndex } from './prepass.js';
 
 export class PlayerStore {
@@ -49,6 +49,26 @@ export class PlayerStore {
   get version() { return this._version; }
   get step() { return this._step; }
   get stepCount() { return this.steps.length; }
+
+  /**
+   * Where the trace stops being setup and starts being the algorithm: the step
+   * containing the first event after any declared construction prologue, or 0.
+   *
+   * Derived here rather than declared, because a producer cannot know step
+   * numbers -- steps are grouping plus the viewer's detail level, and the same
+   * trace has different ones at level 0 and level 1. So the view declares an
+   * EVENT and this maps it, which it can always do. It is recomputed by
+   * setLevel for exactly that reason.
+   *
+   * The prologue steps are ordinary steps, never hidden: the point is to open
+   * past them, not to make them unreachable.
+   */
+  get startStep() {
+    const ev = Math.max(0, ...(this.trace?.meta?.views ?? []).map((v) => v.startEvent ?? 0));
+    if (ev <= 0) return 0;
+    const i = stepIndexOf(this.steps, ev);
+    return i < 0 ? 0 : i;
+  }
 
   get eventIndex() {
     return this._step >= this.steps.length ? this.trace.events.length : this.steps[this._step].e0;

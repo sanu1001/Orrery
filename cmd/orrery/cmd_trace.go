@@ -79,7 +79,7 @@ func parseFlags(spec algos.Spec, args []string) (algos.Args, string, error) {
 				return nil, "", fmt.Errorf("--%s: %q is not a number", name, raw)
 			}
 			out[name] = n
-		case "intList", "tree":
+		case "intList":
 			parts := strings.Split(raw, ",")
 			list := make([]int, 0, len(parts))
 			for _, p := range parts {
@@ -94,6 +94,29 @@ func parseFlags(spec algos.Spec, args []string) (algos.Args, string, error) {
 				list = append(list, n)
 			}
 			out[name] = list
+		case "tree":
+			// Brackets are tolerated because the realistic input is a paste
+			// straight from a problem statement: --tree=[1,2,null,3,4].
+			parts := strings.Split(strings.Trim(strings.TrimSpace(raw), "[]"), ",")
+			toks := make([]any, 0, len(parts))
+			for _, p := range parts {
+				p = strings.TrimSpace(p)
+				if p == "" {
+					continue
+				}
+				// A null is a real token here, not a gap. Dropping it changes
+				// which node the next value hangs off.
+				if p == "null" || p == "nil" || p == "-" {
+					toks = append(toks, nil)
+					continue
+				}
+				n, err := strconv.Atoi(p)
+				if err != nil {
+					return nil, "", fmt.Errorf("--%s: %q is neither a number nor null", name, p)
+				}
+				toks = append(toks, n)
+			}
+			out[name] = toks
 		default:
 			out[name] = raw
 		}

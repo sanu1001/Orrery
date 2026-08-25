@@ -30,7 +30,7 @@ conformance:    ## the Go player vs the JS player, step by step, on every golden
 	@./scripts/conformance.sh
 
 webtest:        ## JS-side tests: tidy-tree properties and the player
-	@cd web && node scripts/tidytree.test.mjs && node scripts/player.test.mjs
+	@cd web && node scripts/tidytree.test.mjs && node scripts/tree.test.mjs && node scripts/player.test.mjs
 
 run:            ## the API server (optional -- the app works without it)
 	go run ./cmd/orreryd

@@ -51,7 +51,7 @@ func goldens(t *testing.T) map[string]*trace.Trace {
 // otherwise checks the committed bytes still match.
 //
 // The point is not the assertion. It is that a format change shows up as a
-// readable git diff across twelve files -- the single best early-warning system
+// readable git diff across every fixture -- the single best early-warning system
 // this project has, and it costs one flag.
 func TestGoldenFixtures(t *testing.T) {
 	if err := os.MkdirAll(goldenDir, 0o755); err != nil {
