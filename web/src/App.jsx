@@ -2,9 +2,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { validate, hasErrors } from './lib/validate.js';
+import { parseTraceFile, traceFilename, MAX_FILE_BYTES } from './lib/tracefile.js';
 import { buildIndex } from './player/prepass.js';
 import { PlayerStore } from './player/store.js';
 import { usePlayerVersion } from './player/usePlayer.js';
+import { useTraceFile, downloadTrace } from './ui/useTraceFile.js';
 
 import TopBar from './ui/TopBar.jsx';
 import Transport from './ui/Transport.jsx';
@@ -40,7 +42,14 @@ export default function App() {
   const [theme, setTheme] = useState('dark');
   const [showKeys, setShowKeys] = useState(false);
   const [offline, setOffline] = useState(false);
+  // Set only when the loaded trace came from a file. It and `algo` are mutually
+  // exclusive: one of them names where the current trace came from, and a
+  // dropped file has no catalogue id and therefore no URL to be shared by.
+  const [fileName, setFileName] = useState('');
   const wantStep = useRef(readHash().step);
+  // The bytes the current trace arrived as, kept so that downloading it hands
+  // back the producer's file rather than a re-encoding. See downloadTrace.
+  const rawText = useRef('');
 
   const version = usePlayerVersion(store);
 
@@ -55,6 +64,33 @@ export default function App() {
   }, []);
 
   // --- trace ----------------------------------------------------------------
+  /**
+   * Everything a validated trace has to do to become the thing on screen.
+   *
+   * Shared by the two ways in -- fetching a built-in and opening a file -- so
+   * that a dropped trace is not a second-class citizen running a slightly
+   * different code path. The only thing the callers do differently is decide
+   * what counts as valid, and both use the same validator to decide it.
+   */
+  const adopt = useCallback((raw, text, label, diags) => {
+    const index = buildIndex(raw, 0);
+    const s = new PlayerStore(raw, index, 0);
+    // Tear down the previous store's timers, or a play loop keeps ticking
+    // against a store nothing is rendering any more.
+    setStore((old) => { old?.dispose?.(); return old; });
+    if (wantStep.current > 0) { s.seek(wantStep.current); wantStep.current = 0; }
+    rawText.current = text;
+    setTrace(raw);
+    setStore(s);
+    setFocus(null);
+    setPinned(false);
+    setLoadState({ status: 'ok', diags, error: '' });
+    if (import.meta.env.DEV) {
+      console.info(`[orrery] ${label}: pre-pass ${index.stats.ms.toFixed(1)}ms, ` +
+        `${index.stats.events} events, ${index.stats.steps} steps, ${index.stats.calls} calls`);
+    }
+  }, []);
+
   const load = useCallback(async (id) => {
     setLoadState({ status: 'loading', diags: [], error: '' });
     try {
@@ -63,7 +99,11 @@ export default function App() {
       // actually matters -- while a free-tier container is cold-starting.
       const res = await fetch(`${BASE}traces/${id}.json`);
       if (!res.ok) throw new Error(`could not load ${id} (${res.status})`);
-      const raw = await res.json();
+      // .text() rather than .json(): the exact bytes are what "download" gives
+      // back, and re-encoding the parsed object is not identity. See
+      // downloadTrace in ui/useTraceFile.js for why.
+      const text = await res.text();
+      const raw = JSON.parse(text);
 
       // THE TRUST BOUNDARY. Everything downstream assumes a valid trace.
       const diags = validate(raw);
@@ -73,28 +113,72 @@ export default function App() {
         setLoadState({ status: 'invalid', diags, error: '' });
         return;
       }
-      const index = buildIndex(raw, 0);
-      const s = new PlayerStore(raw, index, 0);
-      // Tear down the previous store's timers, or a play loop keeps ticking
-      // against a store nothing is rendering any more.
-      setStore((old) => { old?.dispose?.(); return old; });
-      if (wantStep.current > 0) { s.seek(wantStep.current); wantStep.current = 0; }
-      setTrace(raw);
-      setStore(s);
-      setFocus(null);
-      setPinned(false);
-      setLoadState({ status: 'ok', diags, error: '' });
-      if (import.meta.env.DEV) {
-        console.info(`[orrery] ${id}: pre-pass ${index.stats.ms.toFixed(1)}ms, ` +
-          `${index.stats.events} events, ${index.stats.steps} steps, ${index.stats.calls} calls`);
-      }
+      adopt(raw, text, id, diags);
     } catch (err) {
       setStore(null);
       setLoadState({ status: 'error', diags: [], error: String(err && err.message) });
     }
-  }, []);
+  }, [adopt]);
 
-  useEffect(() => { if (algo) load(algo); }, [algo, load]);
+  /**
+   * The other way in: a file, from the drop handler or the open button.
+   *
+   * A file is the least trusted input the app takes -- nothing about it came
+   * from our own producer -- so the size check happens before anything reads
+   * it, and the validator's findings are rendered rather than summarised.
+   */
+  const openFile = useCallback(async (file) => {
+    setLoadState({ status: 'loading', diags: [], error: '' });
+    setAlgo('');
+    setFileName(file.name);
+    // Checked here against the real byte count as well as inside
+    // parseTraceFile, because .text() on a 2GB file is the hang we are
+    // avoiding and by then it is too late to be clever about it.
+    if (file.size > MAX_FILE_BYTES) {
+      setStore(null);
+      setTrace(null);
+      setLoadState({
+        status: 'error', diags: [],
+        error: `${file.name} is ${(file.size / (1 << 20)).toFixed(1)} MiB, over the ` +
+          `${MAX_FILE_BYTES >> 20} MiB cap a tracer runs under`,
+      });
+      return;
+    }
+    try {
+      const text = await file.text();
+      const res = parseTraceFile(text);
+      if (!res.ok) {
+        setStore(null);
+        setTrace(null);
+        setLoadState(res.error
+          ? { status: 'error', diags: [], error: res.error }
+          : { status: 'invalid', diags: res.diags, error: '' });
+        return;
+      }
+      // A deep link's step belongs to the algorithm that link named, not to
+      // whatever file happens to be dropped next.
+      wantStep.current = 0;
+      adopt(res.trace, text, file.name, res.diags);
+    } catch (err) {
+      setStore(null);
+      setTrace(null);
+      setLoadState({ status: 'error', diags: [], error: String(err && err.message) });
+    }
+  }, [adopt]);
+
+  const dragging = useTraceFile(openFile);
+
+  const save = useCallback(() => {
+    if (trace && rawText.current) downloadTrace(rawText.current, traceFilename(trace, fileName));
+  }, [trace, fileName]);
+
+  useEffect(() => {
+    if (!algo) return;
+    // Picking from the catalogue supersedes a dropped file; leaving the name up
+    // would credit the wrong source for what is on screen.
+    setFileName('');
+    load(algo);
+  }, [algo, load]);
 
   // --- session in the URL ---------------------------------------------------
   useEffect(() => {
@@ -108,13 +192,20 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    // A dropped file is not addressable: the recipient of the link does not
+    // have the file. Leaving the previous algorithm's hash up would hand out a
+    // link that silently loads something else, which is worse than no link.
+    if (fileName && window.location.hash) {
+      window.history.replaceState(null, '', window.location.pathname);
+      return;
+    }
     if (!algo || !store) return;
     const step = store.step;
     const hash = step > 0 ? `#a=${algo}&s=${step}` : `#a=${algo}`;
     if (window.location.hash !== hash) {
       window.history.replaceState(null, '', hash);
     }
-  }, [algo, store, version]);
+  }, [algo, fileName, store, version]);
 
   useKeys(store, {
     onHelp: () => setShowKeys((v) => !v),
@@ -134,14 +225,16 @@ export default function App() {
   }, []);
 
   // ------------------------------------------------------------------ render
-  if (!algo) {
+  if (!algo && !fileName) {
     return (
       <div className="app">
         <TopBar catalog={catalog} algo={null} onPick={setAlgo}
-                theme={theme} onTheme={setTheme} onHelp={() => setShowKeys(true)} />
-        <EmptyState catalog={catalog} onPick={setAlgo} offline={offline} />
+                theme={theme} onTheme={setTheme} onHelp={() => setShowKeys(true)}
+                onOpen={openFile} />
+        <EmptyState catalog={catalog} onPick={setAlgo} offline={offline} onOpen={openFile} />
         <div className="transport" />
         {showKeys && <Shortcuts onClose={() => setShowKeys(false)} />}
+        {dragging && <DropOverlay />}
       </div>
     );
   }
@@ -149,7 +242,8 @@ export default function App() {
   return (
     <div className="app">
       <TopBar catalog={catalog} algo={algo} onPick={setAlgo} trace={trace}
-              theme={theme} onTheme={setTheme} onHelp={() => setShowKeys(true)} />
+              theme={theme} onTheme={setTheme} onHelp={() => setShowKeys(true)}
+              fileName={fileName} onOpen={openFile} onSave={store ? save : null} />
 
       {loadState.status === 'error' && (
         <Banner kind="err" title="Couldn't load that trace">
@@ -176,6 +270,25 @@ export default function App() {
 
       <Transport store={store} version={version} />
       {showKeys && <Shortcuts onClose={() => setShowKeys(false)} />}
+      {dragging && <DropOverlay />}
+    </div>
+  );
+}
+
+/**
+ * Shown only while a file is over the window. It is chrome, so it is built from
+ * surface and border tokens rather than an accent -- amber means "written this
+ * step" everywhere in this app, and spending it on a drop target is exactly the
+ * kind of erosion that stops the palette meaning anything. CLAUDE.md,
+ * conventions.
+ */
+function DropOverlay() {
+  return (
+    <div className="dropzone" aria-hidden="true">
+      <div className="dropzone-card">
+        <div className="t">Drop to play it</div>
+        <div className="m">.orrery.json — validated before it reaches the player</div>
+      </div>
     </div>
   );
 }

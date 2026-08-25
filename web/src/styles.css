@@ -405,6 +405,40 @@ input, select {
 .card .m { color: var(--text-mute); font-size: var(--t-xs); margin-top: 2px;
            font-family: var(--font-mono); }
 
+/* -------------------------------------------------- trace as a file ------ */
+
+/* Chrome, so it is built from surface and border tokens only. Amber means
+   "written on this step" everywhere else in this app and spending it on a drop
+   target is how a palette stops meaning anything. */
+.dropzone {
+  position: fixed; inset: 0; z-index: 40;
+  display: grid; place-items: center;
+  background: color-mix(in srgb, var(--surface-sink) 78%, transparent);
+  /* Pointer events off, or the overlay becomes the drop target and swallows
+     the very event it exists to advertise. */
+  pointer-events: none;
+}
+.dropzone-card {
+  border: 2px dashed var(--border-strong); border-radius: var(--r-panel);
+  background: var(--surface);
+  padding: var(--s6) var(--s7); text-align: center;
+  box-shadow: var(--shadow-pop);
+}
+.dropzone-card .t { font-size: var(--t-xl); font-weight: 500; }
+.dropzone-card .m { color: var(--text-mute); font-size: var(--t-sm);
+                    font-family: var(--font-mono); margin-top: var(--s2); }
+
+/* Capped rather than clever: the `title` attribute carries the full name, and
+   the bidi tricks that truncate from the left mangle a leading dot. */
+.filename {
+  font-family: var(--font-mono); font-size: var(--t-sm);
+  color: var(--text-dim); white-space: nowrap;
+  max-width: 24ch; overflow: hidden; text-overflow: ellipsis;
+}
+
+.linkish { padding: 0; text-decoration: underline; color: var(--text-dim); }
+.linkish:hover:not(:disabled) { background: none; color: var(--text); }
+
 /* ------------------------------------------------------- fallback -------- */
 
 .fallback details { margin-bottom: var(--s2); }

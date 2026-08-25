@@ -41,6 +41,14 @@ they held *at read time*:
 That is assembled from recorded facts by ~60 lines of template. It is exact,
 instant, free, deterministic and works offline.
 
+**The trace is a file, not an implementation detail.** Download any run as
+`.orrery.json` and drag it back in later — or hand it to `orrery verify`, or to
+anything else that reads the format. It round-trips byte-identically, because
+the app hands back the producer's bytes rather than a re-encoding of what it
+parsed. A dropped file crosses the same V1–V14 validator the Go side runs, so a
+truncated or corrupt trace shows you the validator's findings rather than a
+broken screen.
+
 **The flagship:** a memoized DP shown as a recursion tree and a memo table at
 once. Hover a cell to find the call that computed it. Hover a `~` memo hit to
 watch a dashed arc trace back to where that value came from. Both directions,

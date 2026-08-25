@@ -1,10 +1,13 @@
 // @ts-check
+import OpenTraceButton from './OpenTraceButton.jsx';
+
 /**
  * The picker is generated entirely from the catalogue, which is generated
  * entirely from the Go registry. That is why adding a thirteenth algorithm
  * needs no frontend change at all.
  */
-export default function TopBar({ catalog, algo, onPick, trace, theme, onTheme, onHelp }) {
+export default function TopBar({ catalog, algo, onPick, trace, theme, onTheme, onHelp,
+                                 fileName, onOpen, onSave }) {
   const grouped = groupByFamily(catalog);
   return (
     <header className="topbar">
@@ -20,6 +23,12 @@ export default function TopBar({ catalog, algo, onPick, trace, theme, onTheme, o
         ))}
       </select>
 
+      {/* Which file is on screen, when it did not come from the catalogue. The
+          picker above reads "choose an algorithm…" in that case, and without
+          this the app looks like it has nothing loaded while plainly playing
+          something. */}
+      {fileName && <span className="filename" title={fileName}>{fileName}</span>}
+
       {trace && (
         <span className="counter" title="input">
           {summariseInput(trace)}
@@ -33,6 +42,11 @@ export default function TopBar({ catalog, algo, onPick, trace, theme, onTheme, o
           {trace.meta.counts.events} events · {trace.meta.counts.steps} steps
         </span>
       )}
+      {onSave && (
+        <button onClick={onSave} title="download this trace as .orrery.json"
+                aria-label="download this trace">⭳</button>
+      )}
+      {onOpen && <OpenTraceButton onOpen={onOpen} />}
       <button onClick={() => onTheme(theme === 'dark' ? 'light' : 'dark')}
               title="toggle theme" aria-label="toggle theme">
         {theme === 'dark' ? '◑' : '◐'}

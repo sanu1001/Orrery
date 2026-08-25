@@ -12,6 +12,7 @@ import { validate, hasErrors } from '../src/lib/validate.js';
 import { buildIndex } from '../src/player/prepass.js';
 import { PlayerStore } from '../src/player/store.js';
 import { explain } from '../src/lib/explain.js';
+import { parseTraceFile, traceFilename, MAX_FILE_BYTES } from '../src/lib/tracefile.js';
 
 // fileURLToPath, not `.pathname`: on Windows the latter yields "/D:/..." with a
 // leading slash, which readdir then resolves against the current drive as
@@ -138,6 +139,52 @@ for (const { id, t } of traces) {
   const ms = performance.now() - t0;
   check(`pre-pass on the largest golden (${biggest.id}, ${biggest.t.events.length} events) is under 50ms`,
     ms < 50, `${ms.toFixed(1)}ms`);
+}
+
+// --- the trace as a file: C6's trust boundary -------------------------------
+// A dropped file is the least trusted input the app takes. These cover the
+// shapes that actually arrive: the real thing, a half-finished download,
+// somebody's package.json, and a file far too big to be a trace at all.
+{
+  for (const f of readdirSync(DIR).filter((x) => x.endsWith('.json'))) {
+    const res = parseTraceFile(readFileSync(join(DIR, f), 'utf8'));
+    check(`${f}: opens as a file`, res.ok, res.error || (res.diags[0]?.message ?? ''));
+  }
+
+  const good = readFileSync(join(DIR, 'lcs.orrery.json'), 'utf8');
+
+  const cut = parseTraceFile(good.slice(0, good.length >> 1));
+  check('a truncated download is rejected as not-JSON',
+    !cut.ok && /isn't JSON/.test(cut.error), cut.error);
+
+  const arr = parseTraceFile('[1,2,3]');
+  check('valid JSON that is not an object is rejected before the validator',
+    !arr.ok && /not a trace object/.test(arr.error), arr.error);
+
+  // The distinguishing case: it parses, so the failure has to come back as
+  // validator DIAGNOSTICS for the UI to render, not as a one-line error.
+  const notATrace = parseTraceFile('{"name":"orrery-web","version":"1.0.0"}');
+  check('a JSON object that is not a trace comes back as diagnostics, not an error',
+    !notATrace.ok && notATrace.error === '' && notATrace.diags.length > 0,
+    `${notATrace.diags.length} diags`);
+
+  const huge = parseTraceFile('"' + 'x'.repeat(MAX_FILE_BYTES + 1) + '"');
+  check('a file over the tracer byte cap is refused without parsing',
+    !huge.ok && /byte cap/.test(huge.error), huge.error);
+
+  check('the download is named after the algorithm',
+    traceFilename(JSON.parse(good)) === 'lcs.orrery.json', traceFilename(JSON.parse(good)));
+  check('a hostile meta.algo cannot escape the download name',
+    traceFilename({ meta: { algo: '../../etc/passwd' } }) === '....etcpasswd.orrery.json',
+    traceFilename({ meta: { algo: '../../etc/passwd' } }));
+  check('a trace that came from a file keeps the name it came in as',
+    traceFilename(JSON.parse(good), 'lcs-custom.orrery.json') === 'lcs-custom.orrery.json',
+    traceFilename(JSON.parse(good), 'lcs-custom.orrery.json'));
+  check('a hostile incoming filename is cleaned the same way',
+    traceFilename({}, '../../evil.json') === '....evil.json',
+    traceFilename({}, '../../evil.json'));
+  check('a trace with no algo still gets a name',
+    traceFilename({}) === 'trace.orrery.json', traceFilename({}));
 }
 
 console.log(failures === 0 ? '\nplayer: all checks passed' : `\nplayer: ${failures} FAILED`);

@@ -1,4 +1,6 @@
 // @ts-check
+import OpenTraceButton from './OpenTraceButton.jsx';
+
 /**
  * The first-run screen.
  *
@@ -8,7 +10,7 @@
  */
 const FEATURED = ['coins-memo', 'lcs', 'nqueens', 'binary'];
 
-export default function EmptyState({ catalog, onPick, offline }) {
+export default function EmptyState({ catalog, onPick, offline, onOpen }) {
   const byId = new Map((catalog ?? []).map((s) => [s.id, s]));
   const cards = FEATURED.map((id) => byId.get(id)).filter(Boolean);
   const rest = (catalog ?? []).filter((s) => !FEATURED.includes(s.id));
@@ -42,6 +44,16 @@ export default function EmptyState({ catalog, onPick, offline }) {
         {rest.length > 0 && (
           <p className="pane-note" style={{ marginTop: 24 }}>
             {rest.length} more in the picker above.
+          </p>
+        )}
+
+        {/* Announced here rather than left to be discovered, because a trace
+            file is only worth downloading if it is obvious it can come back. */}
+        {onOpen && (
+          <p className="pane-note">
+            Or drop a <span className="mono">.orrery.json</span> anywhere on this
+            page — <OpenTraceButton onOpen={onOpen} className="linkish">open a
+            file</OpenTraceButton> works too.
           </p>
         )}
       </div>
