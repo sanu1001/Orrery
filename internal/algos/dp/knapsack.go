@@ -28,9 +28,11 @@ func init() {
 		Defaults: algos.Args{
 			"weights": []int{3, 4, 5, 2}, "values": []int{4, 5, 6, 3}, "capacity": 8,
 		},
-		Source: trace.Source{Path: "internal/algos/dp/knapsack.go", Text: knapSrc, FirstLine: 1},
-		Tags:   []string{"grid", "table", "bottom-up"},
-		Run:    runKnapsack,
+		Source:     trace.Source{Path: "internal/algos/dp/knapsack.go", Text: knapSrc, FirstLine: 1},
+		Tags:       []string{"grid", "table", "bottom-up"},
+		Complexity: "O(n)",
+		Sweep:      []string{"weights", "values"},
+		Run:        runKnapsack,
 	})
 }
 

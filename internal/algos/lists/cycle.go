@@ -23,10 +23,12 @@ func init() {
 			{Name: "loopTo", Kind: "int", Min: -1, Max: 19, Default: 1,
 				Help: "index the tail links back to, or -1 for no cycle"},
 		},
-		Defaults: algos.Args{"values": []int{3, 2, 0, -4, 9, 5}, "loopTo": 1},
-		Source:   trace.Source{Path: "internal/algos/lists/cycle.go", Text: cycleSrc, FirstLine: 1},
-		Tags:     []string{"list", "two-pointer", "cycle"},
-		Run:      runCycle,
+		Defaults:   algos.Args{"values": []int{3, 2, 0, -4, 9, 5}, "loopTo": 1},
+		Source:     trace.Source{Path: "internal/algos/lists/cycle.go", Text: cycleSrc, FirstLine: 1},
+		Tags:       []string{"list", "two-pointer", "cycle"},
+		Complexity: "O(n)",
+		Sweep:      []string{"values"},
+		Run:        runCycle,
 	})
 }
 

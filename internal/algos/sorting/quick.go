@@ -18,12 +18,14 @@ func init() {
 		Family: "Sorting",
 		Blurb:  "Partition around a pivot, then recurse. The call stack is half the story.",
 		Inputs: []algos.InputSpec{
-			{Name: "values", Kind: "intList", Max: 12, Default: []int{5, 2, 9, 1, 7, 3, 8}},
+			{Name: "values", Kind: "intList", Max: 32, Default: []int{5, 2, 9, 1, 7, 3, 8}},
 		},
-		Defaults: algos.Args{"values": []int{5, 2, 9, 1, 7, 3, 8}},
-		Source:   trace.Source{Path: "internal/algos/sorting/quick.go", Text: quickSrc, FirstLine: 1},
-		Tags:     []string{"linear", "recursion", "divide-and-conquer"},
-		Run:      runQuick,
+		Defaults:   algos.Args{"values": []int{5, 2, 9, 1, 7, 3, 8}},
+		Source:     trace.Source{Path: "internal/algos/sorting/quick.go", Text: quickSrc, FirstLine: 1},
+		Tags:       []string{"linear", "recursion", "divide-and-conquer"},
+		Complexity: "O(n log n)",
+		Sweep:      []string{"values"},
+		Run:        runQuick,
 	})
 }
 

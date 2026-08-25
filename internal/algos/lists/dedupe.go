@@ -22,10 +22,12 @@ func init() {
 			{Name: "values", Kind: "intList", Max: 24, Default: []int{1, 1, 2, 3, 3, 3, 4, 5, 5},
 				Help: "sorted on the way in, so duplicates are adjacent"},
 		},
-		Defaults: algos.Args{"values": []int{1, 1, 2, 3, 3, 3, 4, 5, 5}},
-		Source:   trace.Source{Path: "internal/algos/lists/dedupe.go", Text: dedupeSrc, FirstLine: 1},
-		Tags:     []string{"list", "pointers", "deletion"},
-		Run:      runDedupe,
+		Defaults:   algos.Args{"values": []int{1, 1, 2, 3, 3, 3, 4, 5, 5}},
+		Source:     trace.Source{Path: "internal/algos/lists/dedupe.go", Text: dedupeSrc, FirstLine: 1},
+		Tags:       []string{"list", "pointers", "deletion"},
+		Complexity: "O(n)",
+		Sweep:      []string{"values"},
+		Run:        runDedupe,
 	})
 }
 

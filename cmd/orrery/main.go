@@ -25,6 +25,7 @@ usage:
   orrery hash FILE [--all-steps]           state hash, for the conformance suite
   orrery play FILE                         step through a trace in the terminal
   orrery bench <algo> [--max N]            event/step counts vs input size
+  orrery complexity [-o file]              measured growth for every algorithm
 
 trace flags are derived from the algorithm's own input spec, e.g.
   orrery trace lcs --a=AGGTAB --b=GXTXAYB
@@ -53,6 +54,8 @@ func main() {
 		err = cmdPlay(os.Args[2:])
 	case "bench":
 		err = cmdBench(os.Args[2:])
+	case "complexity":
+		err = cmdComplexity(os.Args[2:])
 	case "-h", "--help", "help":
 		fmt.Print(usage)
 		return

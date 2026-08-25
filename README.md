@@ -56,6 +56,13 @@ one a click away. None of that is stored: a breakpoint is a scan over events,
 because every write carries its full value rather than a delta, so "when does
 this cell next change" is answerable without reconstructing any state.
 
+**Claimed complexity, checked.** Every algorithm declares a big-O. The CLI runs
+each one across a range of input sizes, and the app fits a curve to what it
+actually did and puts the two side by side. Fifteen of seventeen agree. Naive
+Fibonacci declares `O(2ⁿ)` and measures `O(1.66ⁿ)` — that is φ, and the declared
+bound is simply loose. N-Queens refuses to fit anything, because it stops at the
+first solution it finds and its cost does not grow smoothly at all.
+
 **The flagship:** a memoized DP shown as a recursion tree and a memo table at
 once. Hover a cell to find the call that computed it. Hover a `~` memo hit to
 watch a dashed arc trace back to where that value came from. Both directions,
@@ -118,6 +125,7 @@ go run ./cmd/orrery trace lcs --a=AGGTAB --b=GXTXAYB -o /tmp/lcs.json
 go run ./cmd/orrery verify /tmp/lcs.json        # V1..V14
 go run ./cmd/orrery play   /tmp/lcs.json        # step through it in a terminal
 go run ./cmd/orrery bench  nqueens --max 7      # events/steps vs input size
+go run ./cmd/orrery complexity                  # measured growth, every algorithm
 ```
 
 `orrery play` exists to prove the point: a completely different consumer of the

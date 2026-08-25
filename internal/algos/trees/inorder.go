@@ -24,10 +24,12 @@ func init() {
 				Help:    "LeetCode level order, e.g. [1,2,null,3,4] — nulls have no children of their own",
 			},
 		},
-		Defaults: algos.Args{"tree": []any{4, 2, 7, 1, 3, 6, 9}},
-		Source:   trace.Source{Path: "internal/algos/trees/inorder.go", Text: inorderSrc, FirstLine: 1},
-		Tags:     []string{"tree", "recursion", "traversal"},
-		Run:      runInorder,
+		Defaults:   algos.Args{"tree": []any{4, 2, 7, 1, 3, 6, 9}},
+		Source:     trace.Source{Path: "internal/algos/trees/inorder.go", Text: inorderSrc, FirstLine: 1},
+		Tags:       []string{"tree", "recursion", "traversal"},
+		Complexity: "O(n)",
+		Sweep:      []string{"tree"},
+		Run:        runInorder,
 	})
 }
 

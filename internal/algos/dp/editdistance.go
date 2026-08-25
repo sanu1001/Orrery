@@ -21,10 +21,12 @@ func init() {
 			{Name: "a", Kind: "string", Max: 10, Default: "kitten"},
 			{Name: "b", Kind: "string", Max: 10, Default: "sitting"},
 		},
-		Defaults: algos.Args{"a": "kitten", "b": "sitting"},
-		Source:   trace.Source{Path: "internal/algos/dp/editdistance.go", Text: editSrc, FirstLine: 1},
-		Tags:     []string{"grid", "table", "three-way"},
-		Run:      runEdit,
+		Defaults:   algos.Args{"a": "kitten", "b": "sitting"},
+		Source:     trace.Source{Path: "internal/algos/dp/editdistance.go", Text: editSrc, FirstLine: 1},
+		Tags:       []string{"grid", "table", "three-way"},
+		Complexity: "O(n^2)",
+		Sweep:      []string{"a", "b"},
+		Run:        runEdit,
 	})
 }
 

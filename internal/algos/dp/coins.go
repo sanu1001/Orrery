@@ -29,10 +29,12 @@ func init() {
 				Help: "coin denominations"},
 			{Name: "amount", Kind: "int", Min: 0, Max: 24, Default: 11},
 		},
-		Defaults: algos.Args{"coins": []int{1, 3, 4}, "amount": 11},
-		Source:   trace.Source{Path: "internal/algos/dp/coins.go", Text: coinsSrc, FirstLine: 1},
-		Tags:     []string{"recursion", "memoization", "flagship"},
-		Run:      runCoins,
+		Defaults:   algos.Args{"coins": []int{1, 3, 4}, "amount": 11},
+		Source:     trace.Source{Path: "internal/algos/dp/coins.go", Text: coinsSrc, FirstLine: 1},
+		Tags:       []string{"recursion", "memoization", "flagship"},
+		Complexity: "O(n)",
+		Sweep:      []string{"amount"},
+		Run:        runCoins,
 	})
 }
 

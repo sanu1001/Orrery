@@ -16,6 +16,7 @@ import CodePane from './ui/CodePane.jsx';
 import ExplainPane from './ui/ExplainPane.jsx';
 import CallStackPane from './ui/CallStackPane.jsx';
 import WatchPane from './ui/WatchPane.jsx';
+import ComplexityPane from './ui/ComplexityPane.jsx';
 import Banner from './ui/Banner.jsx';
 import EmptyState from './ui/EmptyState.jsx';
 import Shortcuts from './ui/Shortcuts.jsx';
@@ -50,6 +51,9 @@ export default function App() {
   const [theme, setTheme] = useState('dark');
   const [showKeys, setShowKeys] = useState(false);
   const [offline, setOffline] = useState(false);
+  // Build-time measurements, fetched once. Absent is fine: the pane simply
+  // does not render, the same way a missing trace degrades rather than throws.
+  const [growth, setGrowth] = useState(/** @type {any} */(null));
   // Set only when the loaded trace came from a file. It and `algo` are mutually
   // exclusive: one of them names where the current trace came from, and a
   // dropped file has no catalogue id and therefore no URL to be shared by.
@@ -64,6 +68,13 @@ export default function App() {
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
 
   // --- catalogue ------------------------------------------------------------
+  useEffect(() => {
+    fetch(`${BASE}complexity.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then(setGrowth)
+      .catch(() => {});
+  }, []);
+
   useEffect(() => {
     fetch(`${BASE}algorithms.json`)
       .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
@@ -334,6 +345,7 @@ export default function App() {
           <CodePane store={store} trace={trace} version={version} />
           <CallStackPane store={store} version={version}
                          focus={focus} onFocus={setFocusIfUnpinned} />
+          <ComplexityPane algo={trace?.meta?.algo} data={growth} />
           <WatchPane store={store} version={version}
                      watches={watches} breakpoints={breakpoints}
                      target={addrOf(focus)}

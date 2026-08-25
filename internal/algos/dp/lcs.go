@@ -21,10 +21,12 @@ func init() {
 			{Name: "a", Kind: "string", Max: 10, Default: "AGGTAB", Help: "first sequence"},
 			{Name: "b", Kind: "string", Max: 10, Default: "GXTXAYB", Help: "second sequence"},
 		},
-		Defaults: algos.Args{"a": "AGGTAB", "b": "GXTXAYB"},
-		Source:   trace.Source{Path: "internal/algos/dp/lcs.go", Text: lcsSrc, FirstLine: 1},
-		Tags:     []string{"grid", "table", "bottom-up"},
-		Run:      runLCS,
+		Defaults:   algos.Args{"a": "AGGTAB", "b": "GXTXAYB"},
+		Source:     trace.Source{Path: "internal/algos/dp/lcs.go", Text: lcsSrc, FirstLine: 1},
+		Tags:       []string{"grid", "table", "bottom-up"},
+		Complexity: "O(n^2)",
+		Sweep:      []string{"a", "b"},
+		Run:        runLCS,
 	})
 }
 

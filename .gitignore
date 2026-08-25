@@ -8,6 +8,7 @@
 # generated: `make traces` rebuilds these from the Go registry
 /web/public/traces/
 /web/public/algorithms.json
+/web/public/complexity.json
 
 # node
 /web/node_modules/

@@ -23,10 +23,12 @@ func init() {
 			{Name: "doubly", Kind: "int", Min: 0, Max: 1, Default: 0,
 				Help: "1 to also maintain prev pointers"},
 		},
-		Defaults: algos.Args{"values": []int{1, 2, 3, 4, 5, 6}, "doubly": 0},
-		Source:   trace.Source{Path: "internal/algos/lists/reverse.go", Text: reverseSrc, FirstLine: 1},
-		Tags:     []string{"list", "pointers", "in-place"},
-		Run:      runReverse,
+		Defaults:   algos.Args{"values": []int{1, 2, 3, 4, 5, 6}, "doubly": 0},
+		Source:     trace.Source{Path: "internal/algos/lists/reverse.go", Text: reverseSrc, FirstLine: 1},
+		Tags:       []string{"list", "pointers", "in-place"},
+		Complexity: "O(n)",
+		Sweep:      []string{"values"},
+		Run:        runReverse,
 	})
 }
 

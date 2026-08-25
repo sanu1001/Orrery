@@ -335,6 +335,35 @@ input, select {
 }
 .prologue[aria-pressed="true"] { color: var(--text); border-color: var(--border-strong); }
 
+/* ------------------------------------------------------- complexity ------ */
+
+.cx { padding: var(--s3) var(--s4); display: flex; flex-direction: column; gap: var(--s2); }
+.cx-verdict { display: flex; flex-direction: column; gap: 2px; font-size: var(--t-sm); }
+.cx-row { display: flex; align-items: baseline; gap: var(--s2); }
+.cx-row .k { color: var(--text-mute); width: 8ch; }
+.cx-row .v { color: var(--text); }
+/* Agreement is stated in words as well; the tint only reinforces it, and
+   `--settled` already means "this is the settled answer" everywhere else. */
+.cx-row .v[data-agree="true"]  { color: var(--settled); }
+.cx-row .v[data-agree="false"] { color: var(--text); }
+.cx-row .q { margin-left: auto; color: var(--text-mute); font-size: var(--t-xs); }
+.cx-note { color: var(--text-mute); font-size: var(--t-xs); margin: 0; line-height: 1.5; }
+
+.cx-chart { width: 100%; height: auto; display: block; }
+.cx-chart .ax { stroke: var(--border); stroke-width: 1; }
+/* One hue. The model is the same quantity annotated, not a second series, so
+   dash and weight carry the difference rather than a colour nobody validated. */
+.cx-measured { fill: none; stroke: var(--settled); stroke-width: 2; }
+.cx-dot { fill: var(--settled); }
+.cx-model { fill: none; stroke: var(--settled); stroke-width: 1.5;
+            stroke-dasharray: 4 3; opacity: 0.45; }
+.cx-lab { font-family: var(--font-mono); font-size: 9px; fill: var(--text-dim); }
+.cx-lab.dim { fill: var(--text-mute); }
+.cx-ax { font-family: var(--font-mono); font-size: 9px; fill: var(--text-mute); }
+
+.cx .seg { align-self: flex-start; }
+.cx .seg button { font-size: var(--t-xs); }
+
 /* ---------------------------------------------------------- watches ------ */
 
 .dbg-actions {

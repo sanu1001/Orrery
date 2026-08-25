@@ -14,6 +14,7 @@ import { PlayerStore } from '../src/player/store.js';
 import { explain } from '../src/lib/explain.js';
 import { parseTraceFile, traceFilename, MAX_FILE_BYTES } from '../src/lib/tracefile.js';
 import { matchFrom, hits, history } from '../src/player/breakpoints.js';
+import { fitGrowth, agrees } from '../src/lib/complexity.js';
 import { stepIndexOf } from '../src/player/steps.js';
 
 // fileURLToPath, not `.pathname`: on Windows the latter yields "/D:/..." with a
@@ -330,6 +331,60 @@ for (const { id, t } of traces) {
     check('the first history entry agrees with the pre-pass firstWrite index',
       got.length === 0 || buildIndex(bubble, 0).firstWrite.get('a 0') === want[0].i);
   }
+}
+
+// --- C3: measured complexity -----------------------------------------------
+// The fitter's job is to be RIGHT about shape, including refusing to answer.
+// These build series with known growth and check the model that comes back.
+{
+  const series = (ns, f, key = 'steps') =>
+    ns.map((n) => ({ n, steps: 0, events: 0, calls: 0, [key]: Math.round(f(n)) }));
+  const ns = [1, 2, 3, 4, 6, 8, 10, 12, 16, 20, 24, 28];
+  const name = (pts, k = 'steps') => fitGrowth(pts, k).best?.name ?? 'inconclusive';
+
+  check('a linear series measures as linear',
+    name(series(ns, (n) => 3 * n + 5)) === 'O(n)', name(series(ns, (n) => 3 * n + 5)));
+  check('a quadratic series measures as quadratic',
+    name(series(ns, (n) => 2 * n * n)) === 'O(n²)', name(series(ns, (n) => 2 * n * n)));
+  check('an n log n series is told apart from both of its neighbours',
+    name(series(ns, (n) => 4 * n * Math.log2(n + 1))) === 'O(n log n)',
+    name(series(ns, (n) => 4 * n * Math.log2(n + 1))));
+  check('a logarithmic series measures as logarithmic',
+    name(series(ns, (n) => 7 * Math.log2(n + 1) + 2)) === 'O(log n)',
+    name(series(ns, (n) => 7 * Math.log2(n + 1) + 2)));
+
+  // The constant matters: a table of (n+1)^2 cells is quadratic, and a
+  // one-parameter fit scored proportionally called it O(n log n) because of how
+  // far off it is at n=1.
+  check('a quadratic with a large constant term is still quadratic',
+    name(series(ns, (n) => (n + 1) * (n + 1))) === 'O(n²)',
+    name(series(ns, (n) => (n + 1) * (n + 1))));
+
+  // Fibonacci's naive recursion grows as phi^n, so a fixed 2^n model cannot
+  // match it. Reporting the base it MEASURES is both correct and the more
+  // interesting answer.
+  const phi = fitGrowth(series(ns, (n) => 1.618 ** n), 'steps').best;
+  check('an exponential reports the base it measured, not a guessed one',
+    phi && phi.exponential && Math.abs(phi.base - 1.618) < 0.05,
+    phi ? `${phi.name} base ${phi.base.toFixed(3)}` : 'none');
+
+  // ...but "exponential" must not be the answer to everything monotone.
+  check('a polynomial is not reported as a shallow exponential',
+    !fitGrowth(series(ns, (n) => 2 * n * n), 'steps').best?.exponential);
+
+  // N-Queens: cost swings with n because it stops at the first solution.
+  check('data with no smooth shape is refused rather than guessed',
+    name([{ n: 4, steps: 31 }, { n: 5, steps: 18 }, { n: 6, steps: 121 },
+          { n: 7, steps: 32 }, { n: 8, steps: 447 }]) === 'inconclusive');
+
+  check('fewer than four points is refused, since two fit anything',
+    fitGrowth([{ n: 1, steps: 1 }, { n: 2, steps: 4 }, { n: 3, steps: 9 }], 'steps').best === null);
+
+  // O(n^2) from a Go struct and O(n²) from the model list are one claim.
+  check('the declared and measured forms are compared after normalising',
+    agrees('O(n^2)', { name: 'O(n²)' }) === true
+    && agrees('O(n log n)', { name: 'O(n)' }) === false
+    && agrees('O(n)', null) === null);
 }
 
 console.log(failures === 0 ? '\nplayer: all checks passed' : `\nplayer: ${failures} FAILED`);

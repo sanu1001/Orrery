@@ -18,13 +18,15 @@ func init() {
 		Family: "Trees",
 		Blurb:  "Every value walks down from the root until it finds the empty slot that belongs to it.",
 		Inputs: []algos.InputSpec{
-			{Name: "values", Kind: "intList", Max: 12, Default: []int{8, 10, 3, 14, 6, 1, 13, 4, 7},
+			{Name: "values", Kind: "intList", Max: 24, Default: []int{8, 10, 3, 14, 6, 1, 13, 4, 7},
 				Help: "up to 12 numbers, inserted in this order"},
 		},
-		Defaults: algos.Args{"values": []int{8, 10, 3, 14, 6, 1, 13, 4, 7}},
-		Source:   trace.Source{Path: "internal/algos/trees/bst.go", Text: bstSrc, FirstLine: 1},
-		Tags:     []string{"tree", "bst", "pointers"},
-		Run:      runBSTInsert,
+		Defaults:   algos.Args{"values": []int{8, 10, 3, 14, 6, 1, 13, 4, 7}},
+		Source:     trace.Source{Path: "internal/algos/trees/bst.go", Text: bstSrc, FirstLine: 1},
+		Tags:       []string{"tree", "bst", "pointers"},
+		Complexity: "O(n log n)",
+		Sweep:      []string{"values"},
+		Run:        runBSTInsert,
 	})
 }
 

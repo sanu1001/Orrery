@@ -23,10 +23,12 @@ func init() {
 			{Name: "n", Kind: "int", Min: 0, Max: 22, Default: 6,
 				Help: "try 20 to watch the tree explode"},
 		},
-		Defaults: algos.Args{"n": 6},
-		Source:   src,
-		Tags:     []string{"recursion", "exponential"},
-		Run:      runFibNaive,
+		Defaults:   algos.Args{"n": 6},
+		Source:     src,
+		Tags:       []string{"recursion", "exponential"},
+		Complexity: "O(2^n)",
+		Sweep:      []string{"n"},
+		Run:        runFibNaive,
 	})
 
 	algos.Register(algos.Spec{
@@ -37,10 +39,12 @@ func init() {
 		Inputs: []algos.InputSpec{
 			{Name: "n", Kind: "int", Min: 0, Max: 20, Default: 8},
 		},
-		Defaults: algos.Args{"n": 8},
-		Source:   src,
-		Tags:     []string{"recursion", "memoization", "flagship"},
-		Run:      runFibMemo,
+		Defaults:   algos.Args{"n": 8},
+		Source:     src,
+		Tags:       []string{"recursion", "memoization", "flagship"},
+		Complexity: "O(n)",
+		Sweep:      []string{"n"},
+		Run:        runFibMemo,
 	})
 }
 

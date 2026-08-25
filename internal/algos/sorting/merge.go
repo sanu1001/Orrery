@@ -18,12 +18,14 @@ func init() {
 		Family: "Sorting",
 		Blurb:  "Split until the pieces are trivial, then merge them back in order.",
 		Inputs: []algos.InputSpec{
-			{Name: "values", Kind: "intList", Max: 12, Default: []int{5, 2, 9, 1, 7, 3, 8, 4}},
+			{Name: "values", Kind: "intList", Max: 32, Default: []int{5, 2, 9, 1, 7, 3, 8, 4}},
 		},
-		Defaults: algos.Args{"values": []int{5, 2, 9, 1, 7, 3, 8, 4}},
-		Source:   trace.Source{Path: "internal/algos/sorting/merge.go", Text: mergeSrc, FirstLine: 1},
-		Tags:     []string{"linear", "recursion", "two-pane"},
-		Run:      runMerge,
+		Defaults:   algos.Args{"values": []int{5, 2, 9, 1, 7, 3, 8, 4}},
+		Source:     trace.Source{Path: "internal/algos/sorting/merge.go", Text: mergeSrc, FirstLine: 1},
+		Tags:       []string{"linear", "recursion", "two-pane"},
+		Complexity: "O(n log n)",
+		Sweep:      []string{"values"},
+		Run:        runMerge,
 	})
 }
 

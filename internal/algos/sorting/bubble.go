@@ -18,13 +18,15 @@ func init() {
 		Family: "Sorting",
 		Blurb:  "Walk the array swapping neighbours. The largest value bubbles to the end each pass.",
 		Inputs: []algos.InputSpec{
-			{Name: "values", Kind: "intList", Max: 12, Default: []int{5, 2, 9, 1, 7, 3},
+			{Name: "values", Kind: "intList", Max: 32, Default: []int{5, 2, 9, 1, 7, 3},
 				Help: "up to 12 numbers"},
 		},
-		Defaults: algos.Args{"values": []int{5, 2, 9, 1, 7, 3}},
-		Source:   trace.Source{Path: "internal/algos/sorting/bubble.go", Text: bubbleSrc, FirstLine: 1},
-		Tags:     []string{"linear", "swap", "quadratic"},
-		Run:      runBubble,
+		Defaults:   algos.Args{"values": []int{5, 2, 9, 1, 7, 3}},
+		Source:     trace.Source{Path: "internal/algos/sorting/bubble.go", Text: bubbleSrc, FirstLine: 1},
+		Tags:       []string{"linear", "swap", "quadratic"},
+		Complexity: "O(n^2)",
+		Sweep:      []string{"values"},
+		Run:        runBubble,
 	})
 }
 

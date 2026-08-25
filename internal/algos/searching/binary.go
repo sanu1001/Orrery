@@ -19,15 +19,17 @@ func init() {
 		Family: "Searching",
 		Blurb:  "Halve the range until the target is cornered.",
 		Inputs: []algos.InputSpec{
-			{Name: "values", Kind: "intList", Max: 16,
+			{Name: "values", Kind: "intList", Max: 64,
 				Default: []int{2, 5, 8, 13, 21, 34, 55, 89},
 				Help:    "sorted automatically"},
 			{Name: "target", Kind: "int", Min: -999, Max: 999, Default: 21},
 		},
-		Defaults: algos.Args{"values": []int{2, 5, 8, 13, 21, 34, 55, 89}, "target": 21},
-		Source:   trace.Source{Path: "internal/algos/searching/binary.go", Text: binarySrc, FirstLine: 1},
-		Tags:     []string{"linear", "cursors", "logarithmic"},
-		Run:      runBinary,
+		Defaults:   algos.Args{"values": []int{2, 5, 8, 13, 21, 34, 55, 89}, "target": 21},
+		Source:     trace.Source{Path: "internal/algos/searching/binary.go", Text: binarySrc, FirstLine: 1},
+		Tags:       []string{"linear", "cursors", "logarithmic"},
+		Complexity: "O(log n)",
+		Sweep:      []string{"values"},
+		Run:        runBinary,
 	})
 }
 

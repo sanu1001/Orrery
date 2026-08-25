@@ -57,7 +57,8 @@ internal/tracer/    The recording API algorithms write against.
 internal/replay/    The Go player. Exists to test the tracer and to prove the
                     JS player correct. Not a production path.
 internal/algos/     17 algorithms. One file each, //go:embed of itself.
-cmd/orrery/         CLI: trace | verify | hash | play | bench | ls | catalog
+cmd/orrery/         CLI: trace | verify | hash | play | bench | complexity |
+                    ls | catalog
 cmd/orreryd/        HTTP server. NOT BUILT YET — see ../workshop/BACKEND.md
 
 web/src/lib/        validate (the trust boundary), value, explain
@@ -88,7 +89,7 @@ make check      # what CI runs: vet + go test -race + conformance + JS tests
 make test       # go test -race ./...
 make conformance# Go player vs JS player, step by step, every golden trace
 make webtest    # tidy-tree properties + tree topology + JS player tests
-make traces     # regenerate web/public/traces/*.json + algorithms.json
+make traces     # regenerate traces/*.json + algorithms.json + complexity.json
 make golden     # regenerate testdata/golden/*.orrery.json, THEN READ THE DIFF
 make fuzz       # 60s on the decoder; it must never panic
 bash scripts/doctor.sh   # what is missing before you waste time on an error
@@ -261,16 +262,24 @@ same statement whatever shape it makes.
 - Do not add npm packages casually.
 - Do not build the optimizations listed in `../workshop/FLAWS.md` §9 before
   their numeric trigger fires.
-- Do not commit `web/public/traces/` or `algorithms.json` — they are generated.
+- Do not commit `web/public/traces/`, `algorithms.json` or `complexity.json` —
+  they are generated.
 
 ---
 
 ## Current state
 
 Stage A is built and green, plus C6 (the trace as a downloadable/droppable
-file), B1 + B2 (tree and linked-list renderers) and C1/C2 (breakpoints and
-watches). 17 algorithms, 6 renderer families plus the call stack pane, CLI
-including a terminal player, Go↔JS conformance over 708 step hashes.
+file), B1 + B2 (tree and linked-list renderers), C1/C2 (breakpoints and
+watches) and C3 (measured complexity). 17 algorithms, 6 renderer families plus
+the call stack pane, CLI including a terminal player, Go↔JS conformance over
+708 step hashes.
+
+Every `Spec` now declares `Complexity` and `Sweep`. `orrery complexity` runs
+each algorithm across its sweep range at build time; `lib/complexity.js` fits a
+model and shows it beside the claim. 15 of 17 agree, and the two that do not
+are the interesting ones -- fib-naive measures 1.66^n against a declared 2^n,
+and N-Queens refuses to fit at all.
 
 `player/breakpoints.js` is worth reading once: matching a breakpoint is a scan
 over EVENTS, never a replay, because every `set` carries its full `to` rather

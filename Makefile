@@ -24,7 +24,8 @@ traces:         ## generate the static traces + catalogue the frontend ships wit
 	@for a in $$(go run ./cmd/orrery ls --ids); do \
 		go run ./cmd/orrery trace $$a -o web/public/traces/$$a.json 2>/dev/null; \
 	done
-	@echo "wrote $$(ls web/public/traces | wc -l) traces + the catalogue"
+	@go run ./cmd/orrery complexity -o web/public/complexity.json
+	@echo "wrote $$(ls web/public/traces | wc -l) traces + the catalogue + growth curves"
 
 conformance:    ## the Go player vs the JS player, step by step, on every golden
 	@./scripts/conformance.sh

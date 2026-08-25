@@ -23,10 +23,12 @@ func init() {
 			{Name: "all", Kind: "int", Min: 0, Max: 1, Default: 0,
 				Help: "0 stops at the first solution, 1 finds them all"},
 		},
-		Defaults: algos.Args{"n": 6, "all": 0},
-		Source:   trace.Source{Path: "internal/algos/backtracking/nqueens.go", Text: nqueensSrc, FirstLine: 1},
-		Tags:     []string{"recursion", "backtracking", "pruning", "board"},
-		Run:      runNQueens,
+		Defaults:   algos.Args{"n": 6, "all": 0},
+		Source:     trace.Source{Path: "internal/algos/backtracking/nqueens.go", Text: nqueensSrc, FirstLine: 1},
+		Tags:       []string{"recursion", "backtracking", "pruning", "board"},
+		Complexity: "O(n!)",
+		Sweep:      []string{"n"},
+		Run:        runNQueens,
 	})
 }
 
