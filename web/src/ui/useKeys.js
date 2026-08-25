@@ -25,9 +25,10 @@ export function useKeys(store, handlers = {}) {
       // The debugger keys act on the address under the cursor or pinned, which
       // is what makes watches and breakpoints reachable without a mouse -- the
       // panes already publish that address through the focus protocol.
-      if (e.key === 'w') { handlers.onWatch?.(); e.preventDefault(); return; }
-      if (e.key === 'b') { handlers.onBreak?.(); e.preventDefault(); return; }
-      if (e.key === 'c' || e.key === 'C') {
+      const k = e.key.length === 1 ? e.key.toLowerCase() : e.key;
+      if (k === 'w') { handlers.onWatch?.(); e.preventDefault(); return; }
+      if (k === 'b') { handlers.onBreak?.(); e.preventDefault(); return; }
+      if (k === 'c') {
         handlers.onContinue?.(e.shiftKey ? -1 : 1);
         e.preventDefault();
         return;

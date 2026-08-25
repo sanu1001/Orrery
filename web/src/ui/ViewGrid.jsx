@@ -51,7 +51,7 @@ function ViewPane({ spec, store, version, focus, onFocus, onPin }) {
             layout must not blank the app. */}
         <ErrorBoundary label={spec.title ?? spec.s}>
           <Renderer store={store} spec={spec} version={version}
-                    focus={focus} onFocus={onFocus}
+                    focus={focus} onFocus={onFocus} onPin={onPin}
                     note={unknown ? `No renderer for "${spec.family}" yet — showing the raw structure.` : undefined} />
         </ErrorBoundary>
       </div>

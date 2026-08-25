@@ -13,7 +13,7 @@ import { resolveFocus } from './focus.js';
  * the whole thing copy-pastes into a spreadsheet, and text renders at the OS's
  * hinting quality. ADR 0011.
  */
-export default function Grid({ store, spec, version, focus, onFocus }) {
+export default function Grid({ store, spec, version, focus, onFocus, onPin }) {
   const s = store.struct(spec.s);
   if (!s) return <div className="pane-note">not created yet</div>;
 
@@ -66,7 +66,7 @@ export default function Grid({ store, spec, version, focus, onFocus }) {
                        settled={!!answer && answer[0] === r && answer[1] === c}
                        linked={lit.cells.has(key)}
                        label={headLabel(s, r, c)}
-                       s={spec.s} at={at} onFocus={onFocus} />
+                       s={spec.s} at={at} onFocus={onFocus} onPin={onPin} />
               );
             })}
           </tr>
@@ -76,7 +76,7 @@ export default function Grid({ store, spec, version, focus, onFocus }) {
   );
 }
 
-const GCell = memo(function GCell({ r, c, v, glyph, filled, w, rd, trail, settled, linked, label, s, at, onFocus }) {
+const GCell = memo(function GCell({ r, c, v, glyph, filled, w, rd, trail, settled, linked, label, s, at, onFocus, onPin }) {
   const text = glyph !== undefined ? glyph : fmtValue(v);
   return (
     <td>
@@ -91,7 +91,14 @@ const GCell = memo(function GCell({ r, c, v, glyph, filled, w, rd, trail, settle
            tabIndex={0}
            aria-label={`${label}, ${fmtValue(v)}`}
            onMouseEnter={() => onFocus?.({ kind: 'cell', s, at })}
-           onMouseLeave={() => onFocus?.(null)}
+           onMouseLeave={(e) => {
+           // A mouse-leave must not clobber a KEYBOARD focus. Focusing a cell
+           // scrolls it into view, which slides other cells under a stationary
+           // pointer and fires this -- nulling the address the keyboard just
+           // selected, which is why the watch keys looked dead.
+           if (document.activeElement !== e.currentTarget) onFocus?.(null);
+         }}
+         onClick={() => onPin?.({ kind: 'cell', s, at })}
            // Keyboard focus publishes the same address as hover. The cell was
            // already tabbable; without this, tabbing to it highlighted nothing
            // and the watch/breakpoint keys had no address to act on.

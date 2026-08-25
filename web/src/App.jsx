@@ -277,13 +277,21 @@ export default function App() {
     setFocus((cur) => (pinned ? cur : f));
   }, [pinned]);
 
+  /**
+   * Click to select an address; click the same one again to deselect.
+   *
+   * Pinning is what makes the debugger usable with a mouse: hover alone cannot
+   * work, because moving the pointer to the rail to press a button is itself a
+   * mouse-leave. The earlier version unpinned on ANY second click, so clicking
+   * one cell and then another cleared the selection instead of moving it.
+   */
   const togglePin = useCallback((f) => {
-    setPinned((p) => {
-      if (p) { setFocus(null); return false; }
-      setFocus(f);
-      return true;
-    });
-  }, []);
+    if (!f) { setPinned(false); setFocus(null); return; }
+    const same = pinned && focus && focus.kind === 'cell'
+      && addrKey(focus.s, focus.at ?? []) === addrKey(f.s, f.at ?? []);
+    setPinned(!same);
+    setFocus(same ? null : f);
+  }, [pinned, focus]);
 
   // ------------------------------------------------------------------ render
   if (!algo && !fileName) {
@@ -328,6 +336,8 @@ export default function App() {
                          focus={focus} onFocus={setFocusIfUnpinned} />
           <WatchPane store={store} version={version}
                      watches={watches} breakpoints={breakpoints}
+                     target={addrOf(focus)}
+                     onWatch={toggleWatch} onBreak={toggleBreakpoint}
                      onSeek={(step) => store?.seek(step)}
                      onRemove={(w) => setWatches((ws) =>
                        ws.filter((x) => addrKey(x.s, x.at) !== addrKey(w.s, w.at)))}

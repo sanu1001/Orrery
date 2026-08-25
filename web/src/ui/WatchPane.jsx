@@ -17,12 +17,42 @@ import { history } from '../player/breakpoints.js';
  * watchable without being touched. That is I2 holding by construction rather
  * than by discipline.
  */
-export default function WatchPane({ store, version, watches, breakpoints, onSeek, onRemove, onRemoveBp }) {
+export default function WatchPane({ store, version, watches, breakpoints, target,
+                                    onSeek, onRemove, onRemoveBp, onWatch, onBreak }) {
+  // Always rendered once a trace is loaded, even with nothing selected. A rail
+  // that only appears after you have already used it cannot teach you that it
+  // exists, and this is the one feature with no other affordance on screen.
   if (!store) return null;
-  if (watches.length === 0 && breakpoints.length === 0) return null;
+
+  const key = target ? addrKey(target.s, target.at) : '';
+  const watched = watches.some((w) => addrKey(w.s, w.at) === key);
+  const broken = breakpoints.some((b) => addrKey(b.s, b.at) === key);
 
   return (
     <>
+      {/* The selected address, stated rather than implied.
+          Watches and breakpoints act on whatever is selected, so when nothing
+          is this row says so -- the first version had no such row, the keys
+          silently did nothing when focus was empty, and that is indistinguishable
+          from the feature being broken. */}
+      <div className="section-head">
+        Debug
+        <span style={{ marginLeft: 'auto', textTransform: 'none' }}>
+          {target ? addrLabel(target.s, target.at) : 'click a cell to select'}
+        </span>
+      </div>
+      {target && (
+        <div className="dbg-actions">
+          <button onClick={onWatch} aria-pressed={watched}>
+            {watched ? 'unwatch' : 'watch'}
+          </button>
+          <button onClick={onBreak} aria-pressed={broken}>
+            {broken ? 'clear breakpoint' : 'breakpoint'}
+          </button>
+          <span className="pane-note" style={{ margin: 0, marginLeft: 'auto' }}>w · b</span>
+        </div>
+      )}
+
       {watches.length > 0 && (
         <>
           <div className="section-head">
