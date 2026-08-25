@@ -4,7 +4,7 @@
 
 ## Context
 
-The frontend is JavaScript. Writing the twelve built-in algorithms in JavaScript
+The frontend is JavaScript. Writing the built-in algorithms in JavaScript
 would eliminate a service, a serialization boundary, and a deployment.
 
 ## Decision
@@ -33,14 +33,14 @@ server-side or at build time.
 Tier 1: it is Stage B's machinery applied to code we control, and it adds a
 600KB download for traces that can be generated at build time. Reconsider only
 if arbitrary inputs must work with no server (they currently degrade to the
-twelve precomputed defaults, which is acceptable).
+precomputed defaults, which is acceptable).
 
 ## Consequences
 
 - A serialization boundary that a monolithic design would not have. Accepted —
   it is the boundary the project is about.
 - Adding an algorithm is one Go file plus `//go:embed`, with **zero frontend
-  changes**. Worth protecting; it is what makes "twelve algorithms" cheap.
+  changes**. Worth protecting; it is what makes adding an algorithm cheap.
 - `runtime.Caller` gives free source-line capture, so the code pane works with
   no annotation burden.
 - Build-time trace generation (`make traces`) means the demo works with the

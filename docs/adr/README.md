@@ -28,3 +28,6 @@ assumption, and it belongs in `FLAWS.md` until you can.
 | 0016 | Detail levels as a filter, sound only over aux structures | accepted |
 | 0019 | Integer version + additive-change policy | accepted |
 | 0020 | Grouped events for multi-write steps | accepted |
+| 0021 | Construction prologue marked by an event, not a step | accepted |
+| 0022 | Breakpoints match by scanning events, never by replaying | accepted |
+| 0023 | Linked lists get their own layout, not the tidy-tree one | accepted |

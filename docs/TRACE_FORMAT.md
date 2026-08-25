@@ -41,6 +41,7 @@ its reason. Nothing else changed.
 | 8 | (unspecified) | **`meta.views`** | something must decide that `dp` is a grid. Declared as data, so renderers stay pure. ADR 0012 |
 | 9 | hard stop at 200k events | 200k events **plus** an 8 MiB byte cap **plus** a wall-clock cap | an empty infinite loop emits zero events and would sit under the event cap forever. Only the host can catch it. ADR 0014 |
 | 10 | input max 10x10 | **per-algorithm** input bounds in `Spec.Inputs` | 10x10 bounds the *input*, not the trace. N-Queens on 10x10 has a call tree in the hundreds of thousands of nodes. `FLAWS.md` §3 |
+| 11 | (unspecified) | **`views[].startEvent`** | a trace that builds its own input opens past the construction. Added after the tree renderer needed it; it is an EVENT index rather than a step index because step boundaries depend on the viewer's detail level, which a producer cannot know. ADR 0021 |
 
 Everything else — the trace-centric design, four event types, `from`/`to`
 reversibility, pure replay with no snapshots, one step = one write, truncation
@@ -453,7 +454,8 @@ deliberately not clever. Clever narration is `BACKLOG.md`.
   { "family": "grid",           "s": "dp",     "pane": 0, "title": "DP table" },
   { "family": "recursionTree",  "s": "$calls", "pane": 1, "title": "Call tree",
     "options": { "memoOf": "dp" } },
-  { "family": "callStack",      "s": "$calls", "pane": "side" }
+  { "family": "callStack",      "s": "$calls", "pane": "side" },
+  { "family": "tree",           "s": "tree",   "pane": 0, "startEvent": 21 }
 ]
 ```
 
@@ -464,6 +466,16 @@ deliberately not clever. Clever narration is `BACKLOG.md`.
   from `call`/`ret`.
 - `pane` is `0`, `1`, or `"side"`. Two panes maximum in Tier 1.
 - `options` is family-specific and opaque to everything else.
+- `startEvent` is optional, and marks the end of a **construction prologue** —
+  the run of writes that builds an input tree or list before the algorithm
+  proper begins. The player opens there and offers a control to rewind into it.
+  Those steps are ordinary steps, never hidden.
+
+  It is an **event** index, not a step index, and that is deliberate. Steps are
+  a function of grouping *and* the viewer's detail level, so the same trace has
+  different step numbers at level 0 and level 1 — a producer cannot name one.
+  Every consumer can map an event to its step, so the mapping happens there.
+  ADR 0021.
 
 **Why this does not violate I2.** The renderer is still a pure function of
 `(state, step, viewSpec)`. It reads a declarative record; it does not import

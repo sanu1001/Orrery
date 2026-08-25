@@ -58,5 +58,5 @@ original locked spec. There will be others.
   must be written to allow-extra rather than reject-extra. Easy to get wrong,
   so it is an explicit test.
 - Golden fixtures are committed pretty-printed with stable key order, so a
-  format change shows up as a **readable diff across twelve files** — the best
+  format change shows up as a **readable diff across every fixture** — the best
   early-warning system the project has.
