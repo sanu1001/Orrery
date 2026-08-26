@@ -34,7 +34,10 @@ webtest:        ## JS-side tests: tidy-tree properties and the player
 	@cd web && node scripts/tidytree.test.mjs && node scripts/tree.test.mjs && node scripts/player.test.mjs
 
 run:            ## the API server (optional -- the app works without it)
-	go run ./cmd/orreryd
+	@# orreryd reads real env vars, never a file: BACKEND.md 8 rejects a config
+	@# file as a second source of truth. Sourcing .env here is a DEV convenience
+	@# that keeps that true of the binary while saving an export per shell.
+	@set -a; if [ -f .env ]; then . ./.env; fi; set +a; go run ./cmd/orreryd
 
 web:            ## the vite dev server
 	cd web && npm run dev

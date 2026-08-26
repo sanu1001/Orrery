@@ -1,0 +1,2 @@
+DROP TABLE IF EXISTS trace_cache;
+DROP TABLE IF EXISTS shares;

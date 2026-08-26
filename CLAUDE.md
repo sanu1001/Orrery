@@ -57,9 +57,15 @@ internal/tracer/    The recording API algorithms write against.
 internal/replay/    The Go player. Exists to test the tracer and to prove the
                     JS player correct. Not a production path.
 internal/algos/     17 algorithms. One file each, //go:embed of itself.
+internal/gen/       Generate + Catalog. Shared by the CLI, the server and the
+                    build, so all three emit byte-identical output for the
+                    same inputs — which is what makes goldens mean anything.
+internal/store/     Postgres: pgx pool, embedded migrations, sqlc queries.
+internal/api/       The HTTP layer: config, cache key, router, handlers.
 cmd/orrery/         CLI: trace | verify | hash | play | bench | complexity |
                     ls | catalog
-cmd/orreryd/        HTTP server. NOT BUILT YET — see ../workshop/BACKEND.md
+cmd/orreryd/        HTTP server: /api/trace, /api/share, the trace cache.
+                    Spec in ../workshop/BACKEND.md
 
 web/src/lib/        validate (the trust boundary), value, explain
 web/src/player/     state, steps, prepass, store  — mirrors internal/trace
@@ -67,8 +73,8 @@ web/src/render/     Linear, Grid, RecursionTree, TreeView, Fallback, focus, layo
 web/src/ui/         shell, transport, code pane, explain pane, panes
 ```
 
-**Dependency rule, enforced in CI:** `algos → tracer → trace`. Nothing points
-back. `internal/trace` imports only the standard library.
+**Dependency rule, enforced in CI:** `api → gen → algos → tracer → trace`.
+Nothing points back. `internal/trace` imports only the standard library.
 
 ---
 
@@ -92,6 +98,7 @@ make webtest    # tidy-tree properties + tree topology + JS player tests
 make traces     # regenerate traces/*.json + algorithms.json + complexity.json
 make golden     # regenerate testdata/golden/*.orrery.json, THEN READ THE DIFF
 make fuzz       # 60s on the decoder; it must never panic
+make run        # the API server; needs DATABASE_URL, see .env.example
 bash scripts/doctor.sh   # what is missing before you waste time on an error
 ```
 
@@ -281,14 +288,29 @@ model and shows it beside the claim. 15 of 17 agree, and the two that do not
 are the interesting ones -- fib-naive measures 1.66^n against a declared 2^n,
 and N-Queens refuses to fit at all.
 
+E1 is built: `cmd/orreryd` serves `/api/algorithms`, `/api/trace`,
+`/api/trace/{key}`, `/api/share`, `/api/share/{id}`, `/healthz` and `/readyz`,
+over a Postgres trace cache and share table. Verified end to end: a trace
+served from the API is byte-identical to the same trace from the CLI, because
+both call `gen.Generate`.
+
+Two things about it are worth knowing before changing it. The cache key hashes
+the RESOLVED input, so `{}` and an explicit `{"n":6}` are one cache entry
+rather than two — hashing the raw body would miss on the most common request
+there is. And `middleware.RealIP` is deliberately NOT installed: it trusts the
+leftmost `X-Forwarded-For`, which is the value a client controls, so E2's rate
+limiter would silently inherit the bypass.
+
 `player/breakpoints.js` is worth reading once: matching a breakpoint is a scan
 over EVENTS, never a replay, because every `set` carries its full `to` rather
 than a delta. That is why searching backward costs exactly what searching
 forward costs, and it is the reversibility invariant paying for itself twice.
 
-Not built: `cmd/orreryd` (spec in `../workshop/BACKEND.md`), the graph renderer
-(spec in `../workshop/RENDERERS/GRAPH.md`), and Stage B (spec in
-`../workshop/STAGE_B.md`).
+Not built: the graph renderer (spec in `../workshop/RENDERERS/GRAPH.md`), Stage B
+(spec in `../workshop/STAGE_B.md`), and E2/E3 — rate limiting, metrics and the
+compile queue, which is why `compile_jobs` is absent from the schema and the
+Stage B fields are absent from Config. Config nothing reads is config nobody
+maintains, and it reads as a half-built feature rather than an unbuilt one.
 
 The tree renderer reuses `layout/tidyTree.js` unchanged; `render/layout/
 treeShape.js` holds the topology, including the cycle breaking that keeps a
