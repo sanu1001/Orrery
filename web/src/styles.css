@@ -568,7 +568,7 @@ div.codeline  { cursor: default; }
    accent. Amber already means "written this step" everywhere, and a second
    meaning for it in the gutter would break the one-colour-one-meaning rule
    that the explanations refer to in words. Opacity carries the heat instead. */
-.codeline .hits { color: var(--text-mute); text-align: right;
+.codeline .hits { color: var(--text-dim); text-align: right;
                   font-size: 0.85em; font-variant-numeric: tabular-nums; }
 
 /* Values written by the current step, shown on the line that wrote them.
@@ -814,3 +814,31 @@ div.codeline  { cursor: default; }
   --settled: var(--text-mute);
   --pruned:  var(--text-mute);
 }
+
+/* --------------------------------------------------------- syntax -------- */
+
+/* Monochrome on purpose. The five accents each mean one thing about the
+   ALGORITHM's state, and syntax is a fact about the text, not about the run --
+   spending a hue on `func` would be the first accent in this app that means
+   nothing. It also keeps the pane readable: amber marks the executing line, and
+   that signal has to win against everything else in the column.
+
+   Lightness, weight and italics carry the structure instead. Strings get a
+   tint-block rather than a colour, which is a shape channel and survives the
+   hueless toggle unchanged.
+
+   Three-class specificity so these beat `.codeline[data-cur="1"] .t`, which
+   would otherwise flatten the current line -- the one line most worth reading. */
+/* --text-mute measures 4.19:1 against the pane background, under WCAG AA's
+   4.5:1 for normal text, so it is not available for anything that is words.
+   Comments carry the WHY in this codebase -- the conventions require it -- and
+   dimming them below the readable floor would bury the part worth reading.
+   Italic separates them instead. */
+.codepane .codeline .tk-com { color: var(--text-dim); font-style: italic; }
+.codepane .codeline .tk-kw  { color: var(--text-dim); font-weight: 600; }
+.codepane .codeline .tk-fn  { color: var(--text); font-weight: 500; }
+.codepane .codeline .tk-num { color: var(--text); }
+.codepane .codeline .tk-str { color: var(--text); border-radius: 2px;
+                              background: color-mix(in srgb, var(--text) 8%, transparent); }
+.codepane .codeline .tk-id  { color: var(--text-dim); }
+.codepane .codeline .tk-pun { color: var(--text-dim); }

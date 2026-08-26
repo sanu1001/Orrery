@@ -1,6 +1,7 @@
 // @ts-check
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { foldableRanges, lineHits, peakHits } from '../lib/source.js';
+import { tokenize } from '../lib/tokenize.js';
 import { explain } from '../lib/explain.js';
 import { fmtValue } from '../lib/value.js';
 
@@ -44,6 +45,11 @@ export default function CodePane({ store, trace, version }) {
   );
   const [openFolds, setOpenFolds] = useState(/** @type {Record<number, boolean>} */({}));
   const peak = useMemo(() => peakHits(lineIndex), [lineIndex, version]);
+
+  // Tokenised once per trace, never per step. The pane re-renders on every
+  // step and the source never changes, so lexing inside the render loop would
+  // be the same work several hundred times over.
+  const toks = useMemo(() => (src ? tokenize(src.text, lang) : []), [src, lang]);
 
   // The values written by the current step, keyed for the line that wrote them.
   // Read from explain()'s structured fields rather than re-deriving: one source
@@ -131,11 +137,27 @@ export default function CodePane({ store, trace, version }) {
             <>
               <span className="n" aria-hidden="true">{ln}</span>
               {hits > 0 && (
-                <span className="hits" aria-hidden="true" style={{ opacity: 0.35 + 0.65 * heat }}>
+                // Heat is WEIGHT, not opacity. Opacity blends toward the
+                // background, and this is already the dimmest text in the pane:
+                // at the 0.35 floor it first had, the coldest counts measured
+                // 3.6:1 against the pane, under WCAG AA. Dimming was also
+                // redundant -- the number IS the magnitude, so fading it made
+                // the small counts hard to read in order to say they were
+                // small. Weight keeps every count at full contrast.
+                <span className="hits" aria-hidden="true"
+                      style={{ fontWeight: heat > 0.34 ? 600 : 400 }}>
                   {hits}
                 </span>
               )}
-              <span className="t">{text || ' '}</span>
+              <span className="t">
+                {/* A blank line still needs a space, or it collapses and the
+                    gutter numbering drifts away from the source. */}
+                {(toks[i] ?? []).length === 0
+                  ? (text || ' ')
+                  : toks[i].map((tk, k) => (
+                      <span key={k} className={`tk-${tk.k}`}>{tk.t}</span>
+                    ))}
+              </span>
               {isCur && inline.length > 0 && (
                 <span className="inlinevals" aria-hidden="true">
                   {inline.map((v, k) => (
