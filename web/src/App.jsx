@@ -15,6 +15,7 @@ import Transport from './ui/Transport.jsx';
 import ViewGrid from './ui/ViewGrid.jsx';
 import CodePane from './ui/CodePane.jsx';
 import ExplainPane from './ui/ExplainPane.jsx';
+import FamilyPane from './ui/FamilyPane.jsx';
 import CallStackPane from './ui/CallStackPane.jsx';
 import WatchPane from './ui/WatchPane.jsx';
 import ComplexityPane from './ui/ComplexityPane.jsx';
@@ -368,6 +369,7 @@ export default function App() {
 
         <aside className="sidepanel">
           <ExplainPane store={store} version={version} />
+          <FamilyPane store={store} version={version} />
           <CodePane store={store} trace={trace} version={version} />
           <CallStackPane store={store} version={version}
                          focus={focus} onFocus={setFocusIfUnpinned} />

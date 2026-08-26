@@ -720,3 +720,36 @@ div.codeline  { cursor: default; }
 .shortcuts table { border-collapse: collapse; width: 100%; }
 .shortcuts td { padding: 3px 0; }
 .shortcuts td:last-child { color: var(--text-dim); padding-left: var(--s4); }
+
+/* ----------------------------------------------------------- family ----- */
+
+/* Siblings of the address this step wrote. Every state carries a glyph and a
+   border style as well as a hue, so the panel reads with colour removed --
+   WCAG 1.4.1, and also what lets it survive a projector. */
+.fam { list-style: none; margin: 0; padding: var(--s3);
+       display: flex; flex-wrap: wrap; gap: var(--s2); }
+.fam-cell { display: flex; align-items: baseline; gap: 4px;
+            font-family: var(--font-mono); font-size: var(--t-sm);
+            padding: 2px 6px; border-radius: var(--r-chip);
+            border: 1px solid transparent; }
+.fam-glyph { font-size: 0.8em; width: 1ch; }
+.fam-idx { color: var(--text-mute); font-size: 0.85em; }
+.fam-val { font-variant-numeric: tabular-nums; }
+
+.fam-cell[data-state="written"] { border-color: var(--write); border-style: solid;
+  background: color-mix(in srgb, var(--write) 14%, transparent); color: var(--write); }
+.fam-cell[data-state="read"]    { border-color: var(--read); border-style: dashed;
+  background: color-mix(in srgb, var(--read) 12%, transparent); color: var(--read); }
+.fam-cell[data-state="settled"] { border-color: var(--settled); border-style: solid;
+  background: color-mix(in srgb, var(--settled) 12%, transparent); color: var(--settled); }
+
+/* Dotted AND struck through. Written-then-taken-back is the state most often
+   misread as never-written, so it gets a third channel. */
+.fam-cell[data-state="undone"]  { border-color: var(--pruned); border-style: dotted;
+  background: color-mix(in srgb, var(--pruned) 12%, transparent); color: var(--pruned);
+  text-decoration: line-through; }
+.fam-cell[data-state="empty"]   { border-color: var(--border); border-style: solid;
+  color: var(--text-mute); }
+
+.fam-note, .fam-empty { padding: 0 var(--s3) var(--s3); font-size: var(--t-sm);
+                        color: var(--text-mute); }

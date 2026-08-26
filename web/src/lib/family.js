@@ -118,6 +118,48 @@ function cmp(a, b) {
 }
 
 /**
+ * What one family member is, right now.
+ *
+ * Here rather than in the pane because this rule has been got wrong twice, in
+ * two different files, in the same way: by reading the current VALUE instead of
+ * the last WRITE.
+ *
+ * Both failures were silent and both looked plausible on screen.
+ *   - `holds the fill` was taken to mean retracted. LCS writes 0 into cells
+ *     whose fill is 0, legitimately, so a monotone DP fill reported as full of
+ *     backtracking. The same mistake had already been made in player/density.js.
+ *   - a pointer set to null was taken to mean retracted. `cur = nil` ends a
+ *     list walk and a tail's `.next` is null because it is the tail; the
+ *     reversal reported most of its steps as undoing.
+ *
+ * Retraction is a transition -- away from a real value, back to the fill -- and
+ * pointers are exempt from it.
+ *
+ * @param {object} o
+ * @param {{from:*, to:*}|undefined} o.write  last write at or before now
+ * @param {*} o.fill
+ * @param {boolean} o.pointer  the producer declared this address a pointer
+ * @param {boolean} o.writtenNow  written by the current step
+ * @param {boolean} o.readNow     read by the current step
+ * @returns {'written'|'read'|'undone'|'settled'|'empty'}
+ */
+export function cellState({ write, fill, pointer, writtenNow, readNow }) {
+  const everWritten = write !== undefined && write !== null;
+  const retracted = everWritten
+    && eq(write.to, fill) && !eq(write.from, fill) && !pointer;
+
+  if (writtenNow) return retracted ? 'undone' : 'written';
+  if (readNow) return 'read';
+  if (everWritten) return retracted ? 'undone' : 'settled';
+  return 'empty';
+}
+
+function eq(a, b) {
+  if (a === null || a === undefined) return b === null || b === undefined;
+  return a === b;
+}
+
+/**
  * A label for the family, with the free position marked. `board[3][·]`,
  * `L.·.next`. Middle dot rather than `*` or `?`, neither of which reads as
  * "any of these" so much as "something is missing".

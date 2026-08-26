@@ -13,7 +13,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildIndex } from '../src/player/prepass.js';
-import { familyOf, familyLabel } from '../src/lib/family.js';
+import { familyOf, familyLabel, cellState } from '../src/lib/family.js';
 
 const DIR = fileURLToPath(new URL('../../testdata/golden/', import.meta.url));
 let failures = 0;
@@ -103,6 +103,43 @@ const load = (id) => JSON.parse(readFileSync(join(DIR, `${id}.orrery.json`), 'ut
   }
   check(`every write in the corpus families cleanly — ${checked} addresses across ${ids.length} traces`,
     bad.length === 0, bad[0] ?? '');
+}
+
+// --- cellState: the rule that has now been got wrong twice ------------------
+// Both failures came from reading the current VALUE instead of the last WRITE,
+// both were silent, and both looked plausible on screen. These are the exact
+// shapes that broke.
+{
+  const S = (o) => cellState({ pointer: false, writtenNow: false, readNow: false, ...o });
+
+  check('a cell nothing has written is empty, not settled',
+    S({ write: undefined, fill: 0 }) === 'empty');
+
+  // N-Queens: a queen taken back. 1 -> 0 where the fill is 0.
+  check('a value returning to the fill from a real value is undone',
+    S({ write: { from: 1, to: 0 }, fill: 0 }) === 'undone');
+
+  // LCS: row 1 of an alignment table legitimately computes 0 into a cell that
+  // already holds 0. Reading the value alone called this backtracking and
+  // painted a monotone DP fill rose.
+  check('a computed value that happens to equal the fill is settled, not undone — the LCS regression',
+    S({ write: { from: 0, to: 0 }, fill: 0 }) === 'settled');
+
+  // list-reverse: `cur = nil` ends the walk; a tail's `.next` is null because
+  // it is the tail. Neither is a retraction.
+  check('a pointer going null is settled, not undone — the list-reverse regression',
+    S({ write: { from: { $: 'n1' }, to: null }, fill: null, pointer: true }) === 'settled');
+  check('but a non-pointer going null with the same shape is still undone',
+    S({ write: { from: { $: 'n1' }, to: null }, fill: null, pointer: false }) === 'undone');
+
+  check('the address written this step reads as written', S({ write: { from: 0, to: 1 }, fill: 0, writtenNow: true }) === 'written');
+  check('writing this step still shows a retraction as undone',
+    S({ write: { from: 1, to: 0 }, fill: 0, writtenNow: true }) === 'undone');
+  check('a read this step outranks its settled history',
+    S({ write: { from: 0, to: 3 }, fill: 0, readNow: true }) === 'read');
+  check('a sentinel fill works the same way — nothing assumes 0 or null',
+    S({ write: { from: 5, to: 999 }, fill: 999 }) === 'undone'
+    && S({ write: { from: 999, to: 999 }, fill: 999 }) === 'settled');
 }
 
 console.log(failures === 0 ? '\nfamily: all checks passed' : `\nfamily: ${failures} FAILED`);
