@@ -7,7 +7,7 @@ import OpenTraceButton from './OpenTraceButton.jsx';
  * needs no frontend change at all.
  */
 export default function TopBar({ catalog, algo, onPick, trace, theme, onTheme, onHelp,
-                                 fileName, onOpen, onSave }) {
+                                 fileName, onOpen, onSave, hueless, onHueless }) {
   const grouped = groupByFamily(catalog);
   return (
     <header className="topbar">
@@ -50,6 +50,14 @@ export default function TopBar({ catalog, algo, onPick, trace, theme, onTheme, o
       <button onClick={() => onTheme(theme === 'dark' ? 'light' : 'dark')}
               title="toggle theme" aria-label="toggle theme">
         {theme === 'dark' ? '◑' : '◐'}
+      </button>
+      {/* aria-pressed, not a label that changes: a toggle whose NAME changes
+          reads as a different control each time it is pressed. */}
+      <button onClick={() => onHueless?.(!hueless)}
+              aria-pressed={!!hueless}
+              title={hueless ? 'restore the semantic colours' : 'read without colour'}
+              aria-label="read without colour">
+        {hueless ? '◇' : '◆'}
       </button>
       <button onClick={onHelp} title="keyboard shortcuts" aria-label="keyboard shortcuts">?</button>
     </header>

@@ -794,3 +794,23 @@ div.codeline  { cursor: default; }
   transition: top var(--d-step) var(--ease);
 }
 .skiplink:focus { top: var(--s3); }
+
+/* ------------------------------------------------------------- hueless --- */
+
+/* Drop the five semantic hues to greys, leaving every other channel intact.
+   It is a legibility setting and an AUDIT: this app claims that no state is
+   carried by colour alone -- a ring, a dotted border, a glyph, a strikethrough,
+   a dash pattern or a height always says the same thing a hue does. Turning
+   this on is how that claim gets checked, because anything that becomes
+   ambiguous here was relying on hue and is a bug.
+   
+   Derived from the text tokens rather than hard-coded, so it follows the light
+   theme too. Lightness still descends by attention -- happening now, then read,
+   then finished -- because removing hue is not a reason to flatten rank. */
+:root[data-hueless="1"] {
+  --write:   var(--text);
+  --read:    var(--text-dim);
+  --cursor:  var(--text-dim);
+  --settled: var(--text-mute);
+  --pruned:  var(--text-mute);
+}

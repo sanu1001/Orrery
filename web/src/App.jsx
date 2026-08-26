@@ -53,6 +53,9 @@ export default function App() {
   const [watches, setWatches] = useState(/** @type {any[]} */([]));
   const [breakpoints, setBreakpoints] = useState(/** @type {any[]} */([]));
   const [theme, setTheme] = useState('dark');
+  // Hueless is a legibility setting and an audit of the app's own claim that
+  // no state is carried by colour alone. styles.css says what it checks.
+  const [hueless, setHueless] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
   const [offline, setOffline] = useState(false);
   // Build-time measurements, fetched once. Absent is fine: the pane simply
@@ -76,6 +79,7 @@ export default function App() {
   const version = usePlayerVersion(store);
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  useEffect(() => { document.documentElement.dataset.hueless = hueless ? '1' : '0'; }, [hueless]);
 
   // --- catalogue ------------------------------------------------------------
   useEffect(() => {
@@ -344,7 +348,8 @@ export default function App() {
     return (
       <div className="app">
         <TopBar catalog={catalog} algo={null} onPick={setAlgo}
-                theme={theme} onTheme={setTheme} onHelp={() => setShowKeys(true)}
+                theme={theme} onTheme={setTheme} hueless={hueless} onHueless={setHueless}
+                onHelp={() => setShowKeys(true)}
                 onOpen={openFile} />
         <EmptyState catalog={catalog} onPick={setAlgo} offline={offline} onOpen={openFile} />
         <div className="transport" />
@@ -362,7 +367,8 @@ export default function App() {
       <a className="skiplink" href="#viz">Skip to the visualisation</a>
       <LiveRegion store={store} version={version} />
       <TopBar catalog={catalog} algo={algo} onPick={setAlgo} trace={trace}
-              theme={theme} onTheme={setTheme} onHelp={() => setShowKeys(true)}
+              theme={theme} onTheme={setTheme} hueless={hueless} onHueless={setHueless}
+                onHelp={() => setShowKeys(true)}
               fileName={fileName} onOpen={openFile} onSave={store ? save : null} />
 
       {loadState.status === 'error' && (
