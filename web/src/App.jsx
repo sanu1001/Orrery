@@ -18,6 +18,8 @@ import ExplainPane from './ui/ExplainPane.jsx';
 import FamilyPane from './ui/FamilyPane.jsx';
 import { useMedia } from './ui/useMedia.js';
 import LiveRegion from './ui/LiveRegion.jsx';
+import CountsPane from './ui/CountsPane.jsx';
+import LegendPane from './ui/LegendPane.jsx';
 import CallStackPane from './ui/CallStackPane.jsx';
 import WatchPane from './ui/WatchPane.jsx';
 import ComplexityPane from './ui/ComplexityPane.jsx';
@@ -380,7 +382,9 @@ export default function App() {
       <div className="workspace" data-wide={wide ? 1 : 0}>
         {wide && (
           <aside className="coderail" aria-label="source code">
-            <CodePane store={store} trace={trace} version={version} />
+            <section className="card card-grow">
+              <CodePane store={store} trace={trace} version={version} />
+            </section>
           </aside>
         )}
         <main className="panes" id="viz" aria-label="visualisation">
@@ -392,13 +396,20 @@ export default function App() {
         </main>
 
         <aside className="sidepanel" aria-label="inspector">
-          <ExplainPane store={store} version={version} />
-          <FamilyPane store={store} version={version} />
-          {!wide && <CodePane store={store} trace={trace} version={version} />}
-          <CallStackPane store={store} version={version}
-                         focus={focus} onFocus={setFocusIfUnpinned} />
-          <ComplexityPane algo={trace?.meta?.algo} data={growth} />
-          <WatchPane store={store} version={version}
+          <section className="card"><ExplainPane store={store} version={version} /></section>
+          <section className="card"><FamilyPane store={store} version={version} /></section>
+          {!wide && (
+            <section className="card card-grow">
+              <CodePane store={store} trace={trace} version={version} />
+            </section>
+          )}
+          <section className="card">
+            <CallStackPane store={store} version={version}
+                           focus={focus} onFocus={setFocusIfUnpinned} />
+          </section>
+          <section className="card"><CountsPane store={store} version={version} /></section>
+          <section className="card"><ComplexityPane algo={trace?.meta?.algo} data={growth} /></section>
+          <section className="card"><WatchPane store={store} version={version}
                      watches={watches} breakpoints={breakpoints}
                      target={addrOf(focus)} liveBps={liveBps}
                      onWatch={toggleWatch} onBreak={toggleBreakpoint}
@@ -406,7 +417,8 @@ export default function App() {
                      onRemove={(w) => setWatches((ws) =>
                        ws.filter((x) => addrKey(x.s, x.at) !== addrKey(w.s, w.at)))}
                      onRemoveBp={(b) => setBreakpoints((bs) =>
-                       bs.filter((x) => addrKey(x.s, x.at) !== addrKey(b.s, b.at)))} />
+                       bs.filter((x) => addrKey(x.s, x.at) !== addrKey(b.s, b.at)))} /></section>
+          <section className="card"><LegendPane /></section>
         </aside>
       </div>
 

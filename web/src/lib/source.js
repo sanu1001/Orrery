@@ -57,7 +57,8 @@ export function foldableRanges(text, lang, firstLine = 1) {
     while (end < lines.length && at(end) !== ')') end++;
     if (end < lines.length) {
       const n = countImports(lines.slice(i, end + 1));
-      folds.push({ from: firstLine, to: firstLine + absorbEmbed(lines, end, at), label: pill(n) });
+      const stop = absorbInit(lines, absorbEmbed(lines, end, at), at);
+      folds.push({ from: firstLine, to: firstLine + stop.end, label: pill(n, stop.init) });
     }
   } else if (at(i).startsWith('import ')) {
     // Consecutive single-line imports.
@@ -99,8 +100,42 @@ function countImports(block) {
   return n;
 }
 
-function pill(n) {
-  return n === 1 ? 'package and 1 import' : `package and ${n} imports`;
+/**
+ * Extend the fold over a top-level `func init()`.
+ *
+ * In this codebase that block is always the registration -- ID, Title, Blurb,
+ * the input specs with their help strings -- which is metadata about the
+ * algorithm rather than the algorithm. It is also where the longest lines in
+ * the file live, so in a rail it wrapped two and three deep and pushed the
+ * function you opened the pane to read off the bottom.
+ *
+ * Safe for the same reason the //go:embed pair is: init runs before any trace
+ * exists, so no event's `ln` points into it. Asserted over every golden rather
+ * than argued -- see "no fold hides a line an event points at".
+ *
+ * Brace counting, not a parser: this only has to find the end of a block whose
+ * shape gofmt already guarantees, and a brace inside a string would need a
+ * literal "}" in a registration field to matter.
+ */
+function absorbInit(lines, end, at) {
+  let k = end;
+  while (k + 1 < lines.length && at(k + 1) === '') k++;
+  if (!/^func init\(\)\s*\{/.test(at(k + 1))) return { end, init: false };
+  k++;
+  let depth = 0;
+  for (; k < lines.length; k++) {
+    for (const ch of lines[k]) {
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+    }
+    if (depth === 0) return { end: k, init: true };
+  }
+  return { end, init: false };
+}
+
+function pill(n, withInit) {
+  const imports = n === 1 ? '1 import' : `${n} imports`;
+  return withInit ? `package, ${imports} and the registration` : `package and ${imports}`;
 }
 
 /**

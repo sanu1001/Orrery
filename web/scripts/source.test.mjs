@@ -59,14 +59,14 @@ const avg = totalHidden / traces.length;
 check(`every Go source folds its prologue — ${folded}/${traces.length}`, folded === traces.length);
 // Numeric, not "looks shorter". If a future refactor trims the prologue, this
 // says so, and the pill may stop being worth its click.
-check(`the fold hides ~12 lines per file, which is what made it worth building — ${avg.toFixed(1)}`,
-  avg >= 9 && avg <= 16, `${totalHidden} lines across ${traces.length} files`);
+check(`the fold hides the whole prologue — ${avg.toFixed(1)} lines per file`,
+  avg >= 9 && avg <= 48, `${totalHidden} lines across ${traces.length} files`);
 
 // --- the pill has to say what it hid ---------------------------------------
 const one = traces.find((x) => x.t.meta.source);
 const f0 = foldableRanges(one.t.meta.source.text, one.t.meta.lang, one.t.meta.source.firstLine || 1)[0];
 check('the pill names the import count rather than saying "…"',
-  /^package and \d+ imports?$/.test(f0.label), f0.label);
+  /^package(,| and) \d+ imports?( and the registration)?$/.test(f0.label), f0.label);
 check('the fold starts at the first line of the file', f0.from === (one.t.meta.source.firstLine || 1));
 
 // --- languages other than Go ------------------------------------------------

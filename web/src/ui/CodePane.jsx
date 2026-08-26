@@ -146,7 +146,7 @@ export default function CodePane({ store, trace, version }) {
                 // small. Weight keeps every count at full contrast.
                 <span className="hits" aria-hidden="true"
                       style={{ fontWeight: heat > 0.34 ? 600 : 400 }}>
-                  {hits}
+                  {hits}×
                 </span>
               )}
               <span className="t">

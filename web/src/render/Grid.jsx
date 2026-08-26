@@ -1,6 +1,7 @@
 // @ts-check
 import { memo, useMemo } from 'react';
 import { addrKey, fmtValue } from '../lib/value.js';
+import { cellState } from '../lib/family.js';
 import { useReadSet } from './Linear.jsx';
 import { resolveFocus } from './focus.js';
 
@@ -37,6 +38,32 @@ export default function Grid({ store, spec, version, focus, onFocus, onPin }) {
   const evIdx = store.eventIndex;
   const lit = resolveFocus(store, focus);
 
+  // Cells that were written and then taken back. In a backtracking search that
+  // is most of the board, and without it every abandoned square looks exactly
+  // like a square never tried -- which is precisely the information a search
+  // visualisation exists to show.
+  //
+  // ONE backward pass for the whole structure, not one scan per cell: a 10x10
+  // table scrubbed at speed would otherwise be ten thousand scans a drag.
+  const undone = useMemo(() => {
+    const out = new Set();
+    if (!union) return out;
+    const events = store.trace?.events ?? [];
+    const seen = new Set();
+    for (let i = Math.min(evIdx, events.length) - 1; i >= 0; i--) {
+      const e = events[i];
+      if (e.t !== 'set' || e.s !== spec.s) continue;
+      const k = addrKey(e.s, e.at ?? []);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      if (cellState({ write: { from: e.from, to: e.to }, fill: union.fill,
+                      pointer: false, writtenNow: false, readNow: false }) === 'undone') {
+        out.add(k);
+      }
+    }
+    return out;
+  }, [store, spec.s, union, evIdx]);
+
   return (
     <table className="grid" style={{ '--cw': `${cell}px`, '--cell': `${cell}px` }}>
       {showHeads && (
@@ -60,6 +87,7 @@ export default function Grid({ store, spec, version, focus, onFocus, onPin }) {
                        v={s.get(at)}
                        glyph={glyphs ? glyphs[String(s.get(at))] : undefined}
                        filled={first !== undefined && first < evIdx}
+                       undone={undone.has(key)}
                        w={changed.has(key)}
                        rd={reads.has(key)}
                        trail={trail.get(key)}
@@ -76,13 +104,14 @@ export default function Grid({ store, spec, version, focus, onFocus, onPin }) {
   );
 }
 
-const GCell = memo(function GCell({ r, c, v, glyph, filled, w, rd, trail, settled, linked, label, s, at, onFocus, onPin }) {
+const GCell = memo(function GCell({ r, c, v, glyph, filled, undone, w, rd, trail, settled, linked, label, s, at, onFocus, onPin }) {
   const text = glyph !== undefined ? glyph : fmtValue(v);
   return (
     <td>
       <div className="gcell num"
            data-w={w ? 1 : 0} data-r={rd ? 1 : 0}
            data-filled={filled ? 1 : 0}
+           data-undone={undone ? 1 : 0}
            data-settled={settled ? 1 : 0}
            data-linked={linked ? 1 : 0}
            data-trail={trail !== undefined ? trail : undefined}
@@ -108,7 +137,7 @@ const GCell = memo(function GCell({ r, c, v, glyph, filled, w, rd, trail, settle
       </div>
     </td>
   );
-}, (a, b) =>
+}, (a, b) => a.undone === b.undone &&
   a.v === b.v && a.w === b.w && a.rd === b.rd && a.filled === b.filled &&
   a.trail === b.trail && a.settled === b.settled && a.linked === b.linked && a.glyph === b.glyph);
 

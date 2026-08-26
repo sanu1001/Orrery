@@ -14,39 +14,74 @@
    ========================================================================= */
 
 :root {
-  /* --- ground: dark (default) --- */
-  --bg:            #0E1116;
-  --surface:       #161B22;
-  --surface-raise: #1C232C;
-  --surface-sink:  #0B0E12;
-  --border:        #262E39;
-  --border-strong: #38424F;
-  --text:          #E6EDF3;
-  --text-dim:      #9AA5B1;
-  --text-mute:     #6B7684;
+  /* --- ground: dark (default) ---
+     Warm near-black rather than the blue-grey this started with. Every value
+     below the ground is one ink -- #F4F1ED -- at a different alpha, which is
+     what keeps a screen holding five saturated accents from reading as noise:
+     nothing in the chrome competes on hue because the chrome has no hue. */
+  --bg:            #0D0C0B;
+  --surface:       #171514;
+  --surface-raise: #1F1C1A;
+  --surface-sink:  #121110;
+  --border:        rgba(244, 241, 237, 0.075);
+  --border-strong: rgba(244, 241, 237, 0.16);
+  --text:          #F4F1ED;
+  --text-dim:      rgba(244, 241, 237, 0.62);
+  --text-mute:     rgba(244, 241, 237, 0.40);
 
   /* --- semantic accents: ONE COLOUR, ONE MEANING, EVERYWHERE ---
      Amber always means "written on this step". Cyan always means "read to
      produce that write". That consistency is what makes five different
      renderers feel like one instrument: a user who learns the grid can read
      the recursion tree without being taught. */
-  --write:   #F0B429;   /* written on this step        */
-  --read:    #4FC3F7;   /* read to produce it          */
-  --cursor:  #A78BFA;   /* a pointer / index / frontier */
-  --settled: #5BD8A6;   /* done, visited, final answer  */
-  --pruned:  #F1707F;   /* failed branch, backtracked   */
-  --inert:   #3A424D;   /* exists, not participating    */
+  --write:   oklch(0.80 0.13 78);    /* written on this step         */
+  --read:    oklch(0.79 0.10 208);   /* read to produce it           */
+  --cursor:  oklch(0.73 0.15 295);   /* a pointer / index / frontier */
+  --settled: oklch(0.75 0.13 152);   /* done, visited, final answer  */
+  --pruned:  oklch(0.68 0.17 15);    /* failed branch, backtracked   */
+  --inert:   rgba(244, 241, 237, 0.13);
 
-  --font-ui:   "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  /* Each accent also has a SOFT fill and an EDGE. Stated once here rather than
+     color-mix()-ed at forty call sites, so a cell, a chip and a tick that all
+     mean "written" are the same amber at the same strength. */
+  --write-soft:   oklch(0.80 0.13 78 / 0.14);
+  --write-edge:   oklch(0.80 0.13 78 / 0.45);
+  --read-soft:    oklch(0.79 0.10 208 / 0.13);
+  --read-edge:    oklch(0.79 0.10 208 / 0.42);
+  --cursor-soft:  oklch(0.73 0.15 295 / 0.14);
+  --cursor-edge:  oklch(0.73 0.15 295 / 0.44);
+  --settled-soft: oklch(0.75 0.13 152 / 0.13);
+  --settled-edge: oklch(0.75 0.13 152 / 0.40);
+  --pruned-soft:  oklch(0.68 0.17 15 / 0.14);
+  --pruned-edge:  oklch(0.68 0.17 15 / 0.44);
 
-  --t-xs: 11px; --t-sm: 12px; --t-md: 13px;
+  /* Syntax. Distinct from the five, because syntax is a fact about the TEXT and
+     the five are facts about the RUN. The keyword hue (300) sits next to
+     --cursor (295); they never share a pane, and the design chose the pairing
+     deliberately rather than by accident. */
+  --syn-kw:  oklch(0.74 0.10 300);
+  --syn-str: oklch(0.78 0.09 105);
+  --syn-num: oklch(0.80 0.07 45);
+  --syn-com: oklch(0.60 0.015 70);
+  --syn-fn:  rgba(244, 241, 237, 0.92);
+  --syn-id:  rgba(244, 241, 237, 0.84);
+  /* 0.60, not the design's 0.44. At 0.44 punctuation measures 3.37:1 against
+     the card, under WCAG AA -- and in Go the punctuation is not decoration:
+     := , {} and () are how the structure is read. */
+  --syn-pun: rgba(244, 241, 237, 0.60);
+
+  --font-ui:   -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+  /* One webfont, per UI_DESIGN.md 3. It degrades to the system mono when the
+     network is gone, which the offline story requires. */
+  --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+  --t-xs: 10px; --t-sm: 11.5px; --t-md: 13px;
   --t-lg: 15px; --t-xl: 20px; --t-2xl: 28px;
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
   --s5: 24px; --s6: 32px; --s7: 48px;
 
-  --r-cell: 4px; --r-chip: 3px; --r-panel: 8px; --r-pill: 999px;
+  --r-cell: 6px; --r-chip: 7px; --r-panel: 14px; --r-pill: 999px;
 
   --cell: 44px;
   --node-r: 20px;
@@ -61,25 +96,48 @@
   --shadow-pop: 0 8px 24px -4px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
 }
 
+/* Light is the same system at the other end of the lightness scale: one warm
+   ink at varying alpha for chrome, the five hues darkened to hold contrast on
+   a light ground. The soft/edge pairs are re-stated rather than inherited --
+   a 14% tint that reads correctly on near-black is invisible on near-white. */
 :root[data-theme="light"] {
-  --bg:            #FBFCFD;
-  --surface:       #FFFFFF;
-  --surface-raise: #F4F6F8;
-  --surface-sink:  #F0F3F6;
-  --border:        #DDE3EA;
-  --border-strong: #C2CBD6;
-  --text:          #12171D;
-  --text-dim:      #4E5966;
-  --text-mute:     #78838F;
+  --bg:            #FAF8F5;
+  --surface:       #FFFDFB;
+  --surface-raise: #F2EFEA;
+  --surface-sink:  #F6F3EF;
+  --border:        rgba(28, 25, 23, 0.10);
+  --border-strong: rgba(28, 25, 23, 0.22);
+  --text:          #1C1917;
+  --text-dim:      rgba(28, 25, 23, 0.66);
+  --text-mute:     rgba(28, 25, 23, 0.46);
 
-  --write:   #B77500;
-  --read:    #0673A8;
-  --cursor:  #6D42D9;
-  --settled: #127A55;
-  --pruned:  #C0293C;
-  --inert:   #9AA5B1;
+  --write:   oklch(0.55 0.14 78);
+  --read:    oklch(0.52 0.13 208);
+  --cursor:  oklch(0.48 0.19 295);
+  --settled: oklch(0.48 0.14 152);
+  --pruned:  oklch(0.52 0.20 15);
+  --inert:   rgba(28, 25, 23, 0.16);
 
-  --shadow-pop: 0 8px 24px -4px rgb(16 24 40 / 0.12), 0 2px 6px -2px rgb(16 24 40 / 0.08);
+  --write-soft:   oklch(0.55 0.14 78 / 0.13);
+  --write-edge:   oklch(0.55 0.14 78 / 0.42);
+  --read-soft:    oklch(0.52 0.13 208 / 0.12);
+  --read-edge:    oklch(0.52 0.13 208 / 0.40);
+  --cursor-soft:  oklch(0.48 0.19 295 / 0.12);
+  --cursor-edge:  oklch(0.48 0.19 295 / 0.40);
+  --settled-soft: oklch(0.48 0.14 152 / 0.12);
+  --settled-edge: oklch(0.48 0.14 152 / 0.38);
+  --pruned-soft:  oklch(0.52 0.20 15 / 0.12);
+  --pruned-edge:  oklch(0.52 0.20 15 / 0.40);
+
+  --syn-kw:  oklch(0.48 0.14 300);
+  --syn-str: oklch(0.46 0.11 105);
+  --syn-num: oklch(0.50 0.11 45);
+  --syn-com: oklch(0.58 0.02 70);
+  --syn-fn:  rgba(28, 25, 23, 0.94);
+  --syn-id:  rgba(28, 25, 23, 0.84);
+  --syn-pun: rgba(28, 25, 23, 0.50);
+
+  --shadow-pop: 0 8px 24px -4px rgb(28 25 23 / 0.12), 0 2px 6px -2px rgb(28 25 23 / 0.08);
 }
 
 /* Motion is information. When someone has asked for less of it, nothing
@@ -134,12 +192,16 @@ input, select {
 
 /* ---------------------------------------------------------------- shell -- */
 
-.app { display: grid; grid-template-rows: 56px 1fr 64px; height: 100%; }
+/* Cards on a ground, not regions divided by hairlines. The gap is what makes
+   the ground read as a surface the panels sit on, and it is why the borders
+   can drop to 7.5% alpha without anything looking unbounded. */
+.app { display: grid; grid-template-rows: auto 1fr auto; height: 100%;
+       gap: var(--s3); padding: var(--s3); background: var(--bg); }
 
 .topbar {
   display: flex; align-items: center; gap: var(--s3);
-  padding: 0 var(--s4);
-  border-bottom: 1px solid var(--border);
+  padding: 0 var(--s4); height: 52px;
+  border: 1px solid var(--border); border-radius: var(--r-panel);
   background: var(--surface);
 }
 
@@ -153,7 +215,10 @@ input, select {
    grows the VISUALISATION rather than the furniture -- which is the column the
    camera then fills, and the reason the tree can be worth zooming into. */
 .workspace { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
-.workspace[data-wide="1"] { grid-template-columns: 340px 1fr 360px; }
+/* 420px, not 340. The design asks for a column "sized to the longest real
+   line"; at 13px mono that is about 52 characters, which fits the body of
+   every built-in without wrapping. */
+.workspace[data-wide="1"] { grid-template-columns: 420px 1fr 360px; }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; } }
 
 /* The code rail. Same surface as the inspector so the centre column reads as
@@ -177,13 +242,14 @@ input, select {
 /* ----------------------------------------------------------------- pane -- */
 
 .pane { display: flex; flex-direction: column; flex: 1; min-height: 0; min-width: 0;
-        border-bottom: 1px solid var(--border); }
+        background: var(--surface); border: 1px solid var(--border);
+        border-radius: var(--r-panel); overflow: hidden; }
 /* A recursion tree needs room; a one-row memo table does not. Weighting the
    panes by what they hold beats an even split, and it is one line. */
 .pane[data-family="recursionTree"] { flex: 2.2; }
 .pane[data-family="graph"]         { flex: 2; }
 .pane[data-family="callStack"]     { flex: 0.7; }
-.pane:last-child { border-bottom: none; }
+
 
 .pane-head {
   display: flex; align-items: center; gap: var(--s2);
@@ -196,11 +262,14 @@ input, select {
 .pane-body { flex: 1; overflow: auto; padding: var(--s4); min-height: 0; }
 .pane-note { color: var(--text-mute); font-size: var(--t-sm); margin: 0 0 var(--s2); }
 
+/* No bottom rule. The card's own edge already separates it from what is
+   outside it, and a second line inside repeated eight times down a rail is
+   what made the old layout read as a list of strips. */
 .section-head {
-  padding: var(--s2) var(--s3);
-  font-size: var(--t-xs); letter-spacing: 0.06em; text-transform: uppercase;
+  padding: var(--s3) var(--s4) var(--s2);
+  font-size: var(--t-xs); font-weight: 600;
+  letter-spacing: 0.12em; text-transform: uppercase;
   color: var(--text-mute);
-  border-bottom: 1px solid var(--border);
   display: flex; align-items: center; gap: var(--s2);
 }
 
@@ -544,23 +613,40 @@ input, select {
 /* overflow-x is hidden, not auto: lines WRAP. A horizontal scrollbar hid the
    end of every long line and took the gutter with it when you used it, so the
    line number and the code you were reading could not be on screen together. */
-.codepane { font-family: var(--font-mono); font-size: var(--t-sm); background: var(--surface-sink);
+/* 13px and a 1.65 line height, not 11.5 and 1.2. This is the pane people
+   actually read a program in, and it was sized like a readout. */
+/* tab-size 2, not the browser default of 8. Go indents with tabs, and eight
+   columns per level meant a body line inside a for inside a func started a
+   third of the way across the rail and then wrapped twice. That one default
+   was most of why this pane was unreadable. */
+.codepane { font-family: var(--font-mono); font-size: var(--t-md); line-height: 1.65;
+            tab-size: 2; -moz-tab-size: 2;
+            background: transparent; padding-bottom: var(--s3);
             flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
 
 /* A row that jumps to a step is a real <button> -- it was a <div onClick>, so
    the feature had no keyboard path at all. These declarations reset the button
    back to looking like a code row without giving up what made it a button. */
-.codeline { display: grid; grid-template-columns: 3ch 2.5ch 1fr; gap: var(--s3);
-            padding: 0 var(--s3); width: 100%; align-items: start; text-align: left;
-            background: none; border: 0; color: inherit; font: inherit;
-            white-space: pre-wrap; overflow-wrap: anywhere; }
+/* The hit count sits on the RIGHT, past the code, the way a profiler puts it.
+   In the gutter it competed with the line number for the same glance. */
+.codeline { display: grid; grid-template-columns: 2.5ch 1fr auto; gap: var(--s3);
+            padding: 0 var(--s4) 0 var(--s3); width: 100%; align-items: start;
+            text-align: left; background: none; border: 0; color: inherit; font: inherit;
+            /* break-word, not anywhere. "anywhere" splits identifiers
+               mid-token, so attacked() could wrap as attac / ked and stop
+               being a word anyone recognises. */
+            white-space: pre-wrap; overflow-wrap: break-word;
+            box-shadow: inset 2px 0 0 0 transparent; }
 button.codeline { cursor: pointer; }
 div.codeline  { cursor: default; }
 .codeline:hover { background: var(--surface-raise); }
 .codeline .n { color: var(--text-mute); text-align: right; }
 .codeline .t { color: var(--text-dim); }
-.codeline[data-cur="1"] { background: color-mix(in srgb, var(--write) 14%, transparent); }
-.codeline[data-cur="1"] .t { color: var(--text); }
+/* The executing line is a left RAIL plus a wash, not a full amber block. A
+   block that saturated fought the syntax colours inside it for the same
+   attention -- and it is the one line whose contents most need reading. */
+.codeline[data-cur="1"] { background: rgba(244, 241, 237, 0.055);
+                          box-shadow: inset 2px 0 0 0 var(--write); }
 .codeline[data-cur="1"] .n { color: var(--write); }
 .codeline[data-hasstep="1"] .n { color: var(--text-dim); }
 
@@ -568,23 +654,25 @@ div.codeline  { cursor: default; }
    accent. Amber already means "written this step" everywhere, and a second
    meaning for it in the gutter would break the one-colour-one-meaning rule
    that the explanations refer to in words. Opacity carries the heat instead. */
-.codeline .hits { color: var(--text-dim); text-align: right;
-                  font-size: 0.85em; font-variant-numeric: tabular-nums; }
+.codeline .hits { grid-column: 3; color: var(--text-mute); text-align: right;
+                  font-size: 0.82em; font-variant-numeric: tabular-nums;
+                  align-self: start; }
 
 /* Values written by the current step, shown on the line that wrote them.
    Amber, because that is what amber means. */
-.codeline .inlinevals { grid-column: 3; display: flex; flex-wrap: wrap; gap: var(--s2);
+.codeline .inlinevals { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--s2);
                         margin-top: 2px; white-space: normal; }
 .codeline .iv { font-size: 0.85em; color: var(--write);
                 background: color-mix(in srgb, var(--write) 12%, transparent);
                 border-radius: 3px; padding: 0 4px; }
 
 /* The collapsed prologue. Chrome, so no accent. */
-.codefold { display: block; width: 100%; text-align: left; cursor: pointer;
-            font: inherit; font-size: 0.9em; color: var(--text-mute);
-            background: var(--surface-raise); border: 0;
-            border-bottom: 1px solid var(--border);
-            padding: 2px var(--s3); }
+.codefold { display: inline-flex; align-items: center; cursor: pointer;
+            font: inherit; font-size: 0.82em; color: var(--text-mute);
+            background: var(--surface-raise); border: 1px solid var(--border);
+            border-radius: var(--r-chip);
+            margin: var(--s2) var(--s4) var(--s2) calc(2.5ch + var(--s3) + var(--s3));
+            padding: 3px 10px; }
 .codefold:hover { color: var(--text-dim); }
 .codefold.open { background: none; }
 
@@ -813,7 +901,35 @@ div.codeline  { cursor: default; }
   --cursor:  var(--text-dim);
   --settled: var(--text-mute);
   --pruned:  var(--text-mute);
+
+  --write-soft:   rgba(244, 241, 237, 0.12);
+  --write-edge:   rgba(244, 241, 237, 0.55);
+  --read-soft:    rgba(244, 241, 237, 0.08);
+  --read-edge:    rgba(244, 241, 237, 0.34);
+  --cursor-soft:  rgba(244, 241, 237, 0.08);
+  --cursor-edge:  rgba(244, 241, 237, 0.34);
+  --settled-soft: rgba(244, 241, 237, 0.06);
+  --settled-edge: rgba(244, 241, 237, 0.26);
+  --pruned-soft:  rgba(244, 241, 237, 0.06);
+  --pruned-edge:  rgba(244, 241, 237, 0.26);
+
+  /* Syntax goes grey too. The control says "read without colour", and a code
+     rail still lit in four hues would make that a lie about the largest
+     coloured surface on the screen. Weight and italics carry what is left. */
+  --syn-kw:  var(--text);
+  --syn-str: var(--text-dim);
+  --syn-num: var(--text);
+  /* --text-dim, not --text-mute. Mute measures 2.9:1 here, and hueless is a
+     LEGIBILITY setting -- shipping it with unreadable comments would defeat
+     the reason someone turns it on. */
+  --syn-com: var(--text-dim);
+  --syn-fn:  var(--text);
+  --syn-id:  var(--text-dim);
+  --syn-pun: var(--text-dim);
 }
+/* Weight has to do the work once hue cannot. */
+:root[data-hueless="1"] .codepane .codeline .tk-kw { font-weight: 700; }
+:root[data-hueless="1"] .codepane .codeline .tk-str { font-style: italic; }
 
 /* --------------------------------------------------------- syntax -------- */
 
@@ -834,11 +950,158 @@ div.codeline  { cursor: default; }
    Comments carry the WHY in this codebase -- the conventions require it -- and
    dimming them below the readable floor would bury the part worth reading.
    Italic separates them instead. */
-.codepane .codeline .tk-com { color: var(--text-dim); font-style: italic; }
-.codepane .codeline .tk-kw  { color: var(--text-dim); font-weight: 600; }
-.codepane .codeline .tk-fn  { color: var(--text); font-weight: 500; }
-.codepane .codeline .tk-num { color: var(--text); }
-.codepane .codeline .tk-str { color: var(--text); border-radius: 2px;
-                              background: color-mix(in srgb, var(--text) 8%, transparent); }
-.codepane .codeline .tk-id  { color: var(--text-dim); }
-.codepane .codeline .tk-pun { color: var(--text-dim); }
+.codepane .codeline .tk-com { color: var(--syn-com); font-style: italic; }
+.codepane .codeline .tk-kw  { color: var(--syn-kw); font-weight: 500; }
+.codepane .codeline .tk-fn  { color: var(--syn-fn); font-weight: 500; }
+.codepane .codeline .tk-num { color: var(--syn-num); }
+.codepane .codeline .tk-str { color: var(--syn-str); }
+.codepane .codeline .tk-id  { color: var(--syn-id); }
+.codepane .codeline .tk-pun { color: var(--syn-pun); }
+
+/* ===================================================== phase 2: chrome ==== */
+
+/* Rails are stacks of cards, not single bordered columns. */
+.workspace { gap: var(--s3); }
+.panes { gap: var(--s3); }
+
+.coderail, .sidepanel {
+  border: 0; background: transparent;
+  gap: var(--s3); padding: 0;
+  overflow-y: auto; overflow-x: hidden;
+}
+
+/* Each child of a rail is its own card. The panes use .pane for this; the rail
+   panes are plain fragments, so they are wrapped here by adjacency instead of
+   asking every one of them to know it is in a rail. */
+.sidepanel > *, .coderail > * { flex: none; }
+
+.explain, .codepane-card, .fam-card, .stack-card, .cx-card, .dbg-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-panel);
+}
+
+.transport {
+  border: 1px solid var(--border); border-radius: var(--r-panel);
+  background: var(--surface);
+}
+
+/* A rail pane. The components render fragments, so the card is applied at the
+   composition site rather than by each of them knowing it lives in a rail. */
+.card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--r-panel); overflow: hidden;
+  display: flex; flex-direction: column; min-height: 0; flex: none;
+}
+/* The code card takes the slack. Everything else in a rail is a fixed-height
+   readout; source is the only thing worth more room when there is more room. */
+.card-grow { flex: 1 1 auto; min-height: 180px; }
+
+/* Inside a card now, so the explain pane stops drawing its own edge. */
+.explain { border-bottom: 0; padding: 0 var(--s4) var(--s4); }
+
+/* ============================================= phase 4: the three panels == */
+
+/* --- family: full-width rows, not a chip cloud ---------------------------
+   A cloud made the reader hunt for index 3; a column puts the siblings in
+   their own order, which is the order the algorithm tries them in. */
+.fam { list-style: none; margin: 0; padding: 0 var(--s3) var(--s2);
+       display: flex; flex-direction: column; gap: 3px; }
+.fam-cell { display: grid; grid-template-columns: 1.5ch 3.5ch 1fr auto;
+            gap: var(--s2); align-items: baseline;
+            font-family: var(--font-mono); font-size: var(--t-sm);
+            padding: 4px var(--s2); border-radius: var(--r-chip);
+            border: 1px solid transparent; }
+.fam-glyph { font-size: 0.85em; text-align: center; }
+.fam-idx { color: var(--text-mute); }
+.fam-val { font-variant-numeric: tabular-nums; }
+.fam-word { font-size: 0.8em; opacity: 0.85; justify-self: end; }
+
+.fam-cell[data-state="written"] { border-color: var(--write-edge); background: var(--write-soft); color: var(--write); }
+.fam-cell[data-state="read"]    { border-color: var(--read-edge); border-style: dashed; background: var(--read-soft); color: var(--read); }
+.fam-cell[data-state="settled"] { border-color: var(--settled-edge); background: var(--settled-soft); color: var(--settled); }
+.fam-cell[data-state="undone"]  { border-color: var(--pruned-edge); border-style: dotted; background: var(--pruned-soft); color: var(--pruned); }
+.fam-cell[data-state="undone"] .fam-val { text-decoration: line-through; }
+.fam-cell[data-state="empty"]   { border-color: var(--border); color: var(--text-mute); }
+
+.fam-note, .fam-empty { padding: 0 var(--s4) var(--s3); font-size: var(--t-sm);
+                        color: var(--text-mute); line-height: 1.5; }
+
+/* --- counts: two by two --------------------------------------------------- */
+.counts { margin: 0; padding: 0 var(--s3) var(--s3);
+          display: grid; grid-template-columns: 1fr 1fr; gap: 1px;
+          background: var(--border); border-radius: var(--r-chip); overflow: hidden;
+          margin-inline: var(--s3); }
+.count { background: var(--surface); padding: var(--s3) var(--s3) var(--s2); }
+.count dt { font-size: var(--t-xs); font-weight: 600; letter-spacing: 0.12em;
+            text-transform: uppercase; color: var(--text-mute); }
+.count dd { margin: 2px 0 0; display: flex; align-items: baseline; gap: var(--s2); }
+.count-v { font-family: var(--font-mono); font-size: var(--t-xl);
+           color: var(--text); font-variant-numeric: tabular-nums; line-height: 1.1; }
+.count-sub { font-family: var(--font-mono); font-size: var(--t-xs); color: var(--text-mute); }
+
+/* --- legend --------------------------------------------------------------- */
+.legend { list-style: none; margin: 0; padding: 0 var(--s4) var(--s4);
+          display: flex; flex-direction: column; gap: var(--s2); }
+.legend-row { display: grid; grid-template-columns: 24px auto 1fr;
+              gap: var(--s3); align-items: center; font-size: var(--t-sm); }
+.legend-chip { display: inline-flex; align-items: center; justify-content: center;
+               width: 24px; height: 20px; border-radius: var(--r-chip);
+               font-family: var(--font-mono); font-size: var(--t-xs);
+               border: 1px solid; }
+.legend-name { font-family: var(--font-mono); }
+.legend-meaning { color: var(--text-mute); }
+
+.legend-row[data-k="write"]   .legend-chip { color: var(--write);   background: var(--write-soft);   border-color: var(--write-edge); }
+.legend-row[data-k="read"]    .legend-chip { color: var(--read);    background: var(--read-soft);    border-color: var(--read-edge); border-style: dashed; }
+.legend-row[data-k="cursor"]  .legend-chip { color: var(--cursor);  background: var(--cursor-soft);  border-color: var(--cursor-edge); }
+.legend-row[data-k="settled"] .legend-chip { color: var(--settled); background: var(--settled-soft); border-color: var(--settled-edge); }
+.legend-row[data-k="pruned"]  .legend-chip { color: var(--pruned);  background: var(--pruned-soft);  border-color: var(--pruned-edge); border-style: dotted; }
+.legend-row[data-k="write"]   .legend-name { color: var(--write); }
+.legend-row[data-k="read"]    .legend-name { color: var(--read); }
+.legend-row[data-k="cursor"]  .legend-name { color: var(--cursor); }
+.legend-row[data-k="settled"] .legend-name { color: var(--settled); }
+.legend-row[data-k="pruned"]  .legend-name { color: var(--pruned); }
+
+/* ============================================ phase 5: renderer polish ==== */
+
+/* Cells get the card language too: rounded, tinted, edged. The soft/edge pairs
+   are the same tokens the family rows and the legend use, so a square the board
+   calls "undone" is the identical rose as the row that says so in words. */
+.cell, .gcell { border-radius: var(--r-cell); }
+
+.cell[data-w="1"], .gcell[data-w="1"] {
+  border-color: var(--write-edge);
+  box-shadow: inset 0 0 0 1px var(--write);
+  background: var(--write-soft);
+}
+.cell[data-r="1"], .gcell[data-r="1"] {
+  border-bottom: 2px dotted var(--read);
+  background: var(--read-soft);
+}
+.cell[data-settled="1"], .gcell[data-settled="1"] { background: var(--settled-soft); }
+
+/* A square tried and abandoned. Dotted, tinted, and struck by the glyph -- the
+   same three channels the family rows use for the same state. */
+.gcell[data-undone="1"] {
+  background: var(--pruned-soft);
+  border-color: var(--pruned-edge); border-style: dotted;
+  color: var(--pruned);
+}
+.gcell[data-undone="1"]::after {
+  content: '✗'; position: absolute; top: 1px; right: 3px;
+  font-size: 8px; line-height: 1; color: var(--pruned); opacity: 0.85;
+}
+.gcell { position: relative; }
+
+/* A cell holding a value it has kept. The board's queens. */
+.gcell[data-filled="1"]:not([data-undone="1"]):not([data-w="1"]) {
+  background: var(--settled-soft); border-color: var(--settled-edge); color: var(--settled);
+}
+
+/* --- tree edges tinted by outcome ---------------------------------------- */
+/* An edge into an abandoned subtree is rose, into a settled one green. The
+   node already says so; the edge says it at the scale you read the whole
+   search at, where individual nodes are too small to classify. */
+.rtree .edge[data-state="fail"] { stroke: var(--pruned); opacity: 0.5; }
+.rtree .edge[data-state="ok"]   { stroke: var(--settled); opacity: 0.55; }
+.rtree .node rect { rx: 6; }

@@ -102,6 +102,12 @@ export default function FamilyPane({ store, version }) {
                 <span className="fam-glyph" aria-hidden="true">{GLYPH[r.state]}</span>
                 <span className="fam-idx" aria-hidden="true">{String(r.index)}</span>
                 <span className="fam-val" aria-hidden="true">{r.value}</span>
+                {/* The state in words as well as in glyph and hue. A reader
+                    should not have to learn the key to read the panel, and
+                    this is the panel the key is most often needed for. */}
+                {r.state !== 'empty' && (
+                  <span className="fam-word" aria-hidden="true">{SHORT[r.state]}</span>
+                )}
               </li>
             ))}
           </ul>
@@ -122,6 +128,10 @@ export default function FamilyPane({ store, version }) {
  * most likely to misread as "never written".
  */
 const GLYPH = { written: 'w', read: 'r', undone: '✗', settled: '✓', empty: '·' };
+/* Short for the eye, long for the ear. The cell shows "undone"; the accessible
+   name says "written then undone", because a screen reader user has no column
+   header or colour to disambiguate it against. */
+const SHORT = { written: 'written', read: 'read', undone: 'undone', settled: 'settled', empty: '' };
 const WORD = {
   written: 'written this step',
   read: 'read this step',

@@ -77,6 +77,7 @@ export default function RecursionTree({ store, spec, version, focus, onFocus }) 
           const live = stack.has(ord) && stack.has(n.parent);
           return (
             <line key={`e${ord}`} className="edge" data-live={live ? 1 : 0}
+                  data-state={lifecycle(n, evIdx, stack, failWhen)}
                   x1={layout.x[n.parent]} y1={layout.y[n.parent] + NODE_H / 2}
                   x2={layout.x[ord]} y2={layout.y[ord] - NODE_H / 2} />
           );
