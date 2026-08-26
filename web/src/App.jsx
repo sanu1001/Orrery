@@ -17,6 +17,7 @@ import CodePane from './ui/CodePane.jsx';
 import ExplainPane from './ui/ExplainPane.jsx';
 import FamilyPane from './ui/FamilyPane.jsx';
 import { useMedia } from './ui/useMedia.js';
+import LiveRegion from './ui/LiveRegion.jsx';
 import CallStackPane from './ui/CallStackPane.jsx';
 import WatchPane from './ui/WatchPane.jsx';
 import ComplexityPane from './ui/ComplexityPane.jsx';
@@ -355,6 +356,11 @@ export default function App() {
 
   return (
     <div className="app">
+      {/* First thing in the tab order. The code rail can hold dozens of
+          jump-to-step buttons, so without this the way to reach the transport
+          by keyboard is to tab past every executable line in the file. */}
+      <a className="skiplink" href="#viz">Skip to the visualisation</a>
+      <LiveRegion store={store} version={version} />
       <TopBar catalog={catalog} algo={algo} onPick={setAlgo} trace={trace}
               theme={theme} onTheme={setTheme} onHelp={() => setShowKeys(true)}
               fileName={fileName} onOpen={openFile} onSave={store ? save : null} />
@@ -367,19 +373,19 @@ export default function App() {
 
       <div className="workspace" data-wide={wide ? 1 : 0}>
         {wide && (
-          <aside className="coderail">
+          <aside className="coderail" aria-label="source code">
             <CodePane store={store} trace={trace} version={version} />
           </aside>
         )}
-        <div className="panes">
+        <main className="panes" id="viz" aria-label="visualisation">
           {trace?.meta?.truncated && <TruncationBanner trace={trace} onPick={setAlgo} />}
           {loadState.status === 'invalid'
             ? <InvalidTrace diags={loadState.diags} />
             : <ViewGrid store={store} trace={trace} version={version}
                         focus={focus} onFocus={setFocusIfUnpinned} onPin={togglePin} />}
-        </div>
+        </main>
 
-        <aside className="sidepanel">
+        <aside className="sidepanel" aria-label="inspector">
           <ExplainPane store={store} version={version} />
           <FamilyPane store={store} version={version} />
           {!wide && <CodePane store={store} trace={trace} version={version} />}

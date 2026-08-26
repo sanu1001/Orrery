@@ -781,3 +781,16 @@ div.codeline  { cursor: default; }
    chasing the pointer after it has stopped. UI_DESIGN.md 5 gives seek a
    duration of 0. */
 .rtree .cam[data-snap="1"] { transition: none; }
+
+/* ------------------------------------------------------------ skip link -- */
+
+/* Off-screen until focused, then a real, visible target. Not display:none,
+   which would take it out of the tab order and defeat the point. */
+.skiplink {
+  position: absolute; left: var(--s3); top: -100px; z-index: 100;
+  padding: var(--s2) var(--s3); border-radius: var(--r-chip);
+  background: var(--surface-raise); color: var(--text);
+  border: 1px solid var(--border-strong);
+  transition: top var(--d-step) var(--ease);
+}
+.skiplink:focus { top: var(--s3); }
