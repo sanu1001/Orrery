@@ -8,15 +8,13 @@
   <a href="docs/adr/">decisions</a>
 </p>
 
-![The flagship: a memoized DP as a recursion tree and a memo table, synchronized](docs/img/flagship.png)
+<!-- A16: hero screenshot goes here once the images are re-shot. -->
 
 ---
 
 Watch an algorithm execute one step at a time — **forwards and backwards** —
 with the source code, the data structure, and a plain-English reason for every
 value, shown together.
-
-![Stepping through a memoized coin change, then hovering a memo hit to trace it back to its source](docs/img/demo.gif)
 
 ## What makes it different
 
@@ -69,12 +67,13 @@ watch a dashed arc trace back to where that value came from. Both directions,
 no synchronization code — the two panes are pure functions of the same state,
 so they cannot drift.
 
-<table>
-<tr>
-<td width="50%"><img src="docs/img/nqueens.png" alt="N-Queens: failed subtrees dim to rose as the search abandons them"><br><sub><b>N-Queens.</b> Failed subtrees dim to rose as the search abandons them; the live path stays bright. That is pruning, made visible — from the return value alone, with no algorithm-specific code.</sub></td>
-<td width="50%"><img src="docs/img/grid.png" alt="LCS: a DP table with the fill-order trail and read dependencies marked"><br><sub><b>LCS.</b> Amber ring = written this step. Dotted cyan = read to produce it. The faded trail behind shows the fill order — row-major here, scattered for a memoized solve.</sub></td>
-</tr>
-</table>
+**N-Queens.** Failed subtrees dim to rose as the search abandons them; the live
+path stays bright. That is pruning, made visible — from the return value alone,
+with no algorithm-specific code.
+
+**LCS.** Amber ring = written this step. Dotted cyan = read to produce it. The
+faded trail behind shows the fill order — row-major here, scattered for a
+memoized solve.
 
 ## Architecture in 200 words
 
