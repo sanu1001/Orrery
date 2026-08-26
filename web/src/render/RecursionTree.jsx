@@ -45,7 +45,7 @@ export default function RecursionTree({ store, spec, version, focus, onFocus }) 
   const focusMode = tree.nodes.length > MAX_SVG_NODES;
 
   const visible = useVisible(tree, evIdx, stack, focusMode, focus);
-  const view = useCamera(layout, visible, nodeW, focusMode, store.animating);
+  const view = useCamera(layout, visible, nodeW);
   const failWhen = spec.options?.failWhen ?? 'false';
 
   const cite = citationFor(focus, tree, layout, nodeW);
@@ -62,8 +62,14 @@ export default function RecursionTree({ store, spec, version, focus, onFocus }) 
   }
 
   return (
-    <svg className="rtree" ref={boxRef} viewBox={view.viewBox} preserveAspectRatio="xMidYMid meet">
-      <g>
+    <svg className="rtree" ref={boxRef} viewBox={`0 0 ${VIEW_W} ${VIEW_H}`}
+         preserveAspectRatio="xMidYMid meet">
+      {/* data-snap turns the transition off for a scrub. UI_DESIGN.md 5 gives
+          seeking a duration of 0 on purpose: a drag crosses hundreds of
+          framings, and easing between them would leave the camera chasing the
+          scrubber long after the pointer stopped. A deliberate step springs;
+          a scrub snaps. */}
+      <g className="cam" data-snap={store.animating ? 0 : 1} transform={view.transform}>
         {/* Edges first so node boxes paint over the line ends. */}
         {visible.map((ord) => {
           const n = tree.nodes[ord];
@@ -184,12 +190,29 @@ function descendants(tree, ord, depth) {
 }
 
 /**
- * The camera fits the visible bounding box, with HYSTERESIS so it does not
- * creep every step, and it never re-fits mid-scrub. Relative positions are
- * constant; this is a pan and zoom of a rigid picture.
+ * The camera fits what has been DISCOVERED, over a picture that never moves.
+ *
+ * It is a transform on the root `<g>`, not a viewBox. That is the whole reason
+ * this was rewritten: browsers do not transition `viewBox`, so re-fitting used
+ * to cut instantly between framings and the tree appeared to jolt each time it
+ * outgrew its box -- which reads exactly like the reflow this architecture
+ * exists to avoid, even though nothing had moved relative to anything else.
+ * UI_DESIGN.md 5 specified `transform` on the root `<g>` at 400ms from the
+ * start, and `--d-view` has been sitting in the stylesheet unused ever since.
+ *
+ * The viewBox is fixed instead, which also settles the minimap: it was sized in
+ * fitted-bbox units, so a corner overlay declared as 160x110 was drawn at
+ * whatever the current zoom happened to make of it.
  */
-function useCamera(layout, visible, nodeW, focusMode, animate) {
-  const last = useRef({ viewBox: '0 0 100 100', box: null });
+const VIEW_W = 1000, VIEW_H = 700, CAM_PAD = 48;
+
+// A three-node tree must not be blown up until each node reads as a billboard.
+// Past roughly 2x a 26px node stops looking like a label on a diagram and
+// starts looking like a button, which misrepresents how much has been found.
+const MAX_SCALE = 2;
+
+function useCamera(layout, visible, nodeW) {
+  const last = useRef({ transform: 'translate(0 0) scale(1)', box: null });
   return useMemo(() => {
     if (visible.length === 0) return last.current;
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
@@ -200,18 +223,31 @@ function useCamera(layout, visible, nodeW, focusMode, animate) {
       maxY = Math.max(maxY, layout.y[ord]);
     }
     const pad = nodeW;
-    const box = { x: minX - pad, y: minY - NODE_H, w: (maxX - minX) + pad * 2, h: (maxY - minY) + NODE_H * 3 };
+    const box = {
+      x: minX - pad, y: minY - NODE_H,
+      w: Math.max((maxX - minX) + pad * 2, 120),
+      h: Math.max((maxY - minY) + NODE_H * 3, 80),
+    };
     const prev = last.current.box;
     // Hysteresis: only re-fit when the needed box escapes the current one by
-    // more than 12%, so the camera settles instead of creeping.
+    // more than 12%, so the camera settles instead of creeping a little on
+    // every step. With a 400ms transition this matters more than it used to --
+    // a creeping camera would now be a permanently animating one.
     if (prev && box.x >= prev.x && box.y >= prev.y &&
         box.x + box.w <= prev.x + prev.w * 1.12 &&
         box.y + box.h <= prev.y + prev.h * 1.12) {
       return last.current;
     }
-    last.current = { viewBox: `${box.x} ${box.y} ${Math.max(box.w, 120)} ${Math.max(box.h, 80)}`, box };
+    const innerW = VIEW_W - CAM_PAD * 2, innerH = VIEW_H - CAM_PAD * 2;
+    const sc = Math.min(MAX_SCALE, innerW / box.w, innerH / box.h);
+    const tx = CAM_PAD + (innerW - box.w * sc) / 2 - box.x * sc;
+    const ty = CAM_PAD + (innerH - box.h * sc) / 2 - box.y * sc;
+    last.current = {
+      transform: `translate(${tx.toFixed(1)} ${ty.toFixed(1)}) scale(${sc.toFixed(4)})`,
+      box,
+    };
     return last.current;
-  }, [layout, visible.length, nodeW, focusMode]);
+  }, [layout, visible.length, nodeW]);
 }
 
 /**

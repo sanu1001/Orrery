@@ -753,3 +753,18 @@ div.codeline  { cursor: default; }
 
 .fam-note, .fam-empty { padding: 0 var(--s3) var(--s3); font-size: var(--t-sm);
                         color: var(--text-mute); }
+
+/* The recursion-tree camera. A transform on the root <g>, not a viewBox --
+   browsers do not transition viewBox, so re-fitting used to cut between
+   framings and read as the tree jolting, which is the exact impression the
+   static-layout architecture exists to avoid. --d-view has been defined for
+   this since the first stylesheet and went unused until now.
+
+   The reduced-motion block already drops --d-view to 1ms, so the camera stops
+   moving without anything becoming invisible. */
+.rtree .cam { transition: transform var(--d-view) var(--ease); }
+
+/* A scrub crosses hundreds of framings; easing between them leaves the camera
+   chasing the pointer after it has stopped. UI_DESIGN.md 5 gives seek a
+   duration of 0. */
+.rtree .cam[data-snap="1"] { transition: none; }
