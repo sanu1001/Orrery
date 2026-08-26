@@ -528,16 +528,52 @@ input, select {
 
 /* ------------------------------------------------------------ code ------- */
 
+/* overflow-x is hidden, not auto: lines WRAP. A horizontal scrollbar hid the
+   end of every long line and took the gutter with it when you used it, so the
+   line number and the code you were reading could not be on screen together. */
 .codepane { font-family: var(--font-mono); font-size: var(--t-sm); background: var(--surface-sink);
-            flex: 1; overflow: auto; min-height: 0; }
-.codeline { display: flex; gap: var(--s3); padding: 0 var(--s3); white-space: pre; cursor: pointer; }
+            flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+
+/* A row that jumps to a step is a real <button> -- it was a <div onClick>, so
+   the feature had no keyboard path at all. These declarations reset the button
+   back to looking like a code row without giving up what made it a button. */
+.codeline { display: grid; grid-template-columns: 3ch 2.5ch 1fr; gap: var(--s3);
+            padding: 0 var(--s3); width: 100%; align-items: start; text-align: left;
+            background: none; border: 0; color: inherit; font: inherit;
+            white-space: pre-wrap; overflow-wrap: anywhere; }
+button.codeline { cursor: pointer; }
+div.codeline  { cursor: default; }
 .codeline:hover { background: var(--surface-raise); }
-.codeline .n { color: var(--text-mute); width: 3ch; text-align: right; flex: none; }
+.codeline .n { color: var(--text-mute); text-align: right; }
 .codeline .t { color: var(--text-dim); }
 .codeline[data-cur="1"] { background: color-mix(in srgb, var(--write) 14%, transparent); }
 .codeline[data-cur="1"] .t { color: var(--text); }
 .codeline[data-cur="1"] .n { color: var(--write); }
 .codeline[data-hasstep="1"] .n { color: var(--text-dim); }
+
+/* Hit counts are metadata, not semantics: deliberately --text-mute and never an
+   accent. Amber already means "written this step" everywhere, and a second
+   meaning for it in the gutter would break the one-colour-one-meaning rule
+   that the explanations refer to in words. Opacity carries the heat instead. */
+.codeline .hits { color: var(--text-mute); text-align: right;
+                  font-size: 0.85em; font-variant-numeric: tabular-nums; }
+
+/* Values written by the current step, shown on the line that wrote them.
+   Amber, because that is what amber means. */
+.codeline .inlinevals { grid-column: 3; display: flex; flex-wrap: wrap; gap: var(--s2);
+                        margin-top: 2px; white-space: normal; }
+.codeline .iv { font-size: 0.85em; color: var(--write);
+                background: color-mix(in srgb, var(--write) 12%, transparent);
+                border-radius: 3px; padding: 0 4px; }
+
+/* The collapsed prologue. Chrome, so no accent. */
+.codefold { display: block; width: 100%; text-align: left; cursor: pointer;
+            font: inherit; font-size: 0.9em; color: var(--text-mute);
+            background: var(--surface-raise); border: 0;
+            border-bottom: 1px solid var(--border);
+            padding: 2px var(--s3); }
+.codefold:hover { color: var(--text-dim); }
+.codefold.open { background: none; }
 
 /* --------------------------------------------------------- explain ------- */
 
