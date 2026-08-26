@@ -1130,3 +1130,42 @@ div.codeline  { cursor: default; }
 .rtree .edge[data-state="fail"] { stroke: var(--pruned); opacity: 0.5; }
 .rtree .edge[data-state="ok"]   { stroke: var(--settled); opacity: 0.55; }
 .rtree .node rect { rx: 6; }
+
+/* ===================================== layout: give space to what uses it == */
+
+/* A one- or two-row structure sizes to its content instead of taking an equal
+   share of the column. coins-memo's memo table is 1x12: 57px of content that
+   was holding a 256px pane open while the recursion tree above it rendered at
+   26% of its own height. */
+.pane[data-compact="1"] { flex: 0 0 auto; }
+.pane[data-compact="1"] .pane-body { min-height: 0; }
+
+/* The Nearby list is the tallest thing in the rail -- twelve siblings is 448px,
+   a third of the column -- and it pushed the call stack, the counts and the
+   legend below the fold. Capped and scrolled internally, so the panels under it
+   stay where the reader left them. */
+.fam { max-height: 190px; overflow-y: auto; }
+
+/* --- the recursion tree in dot mode -------------------------------------- */
+
+/* Past the width where every node can carry its label, nodes become dots and
+   the labels follow the live path. Stroke widths are non-scaling so a dot at
+   camera scale 2 does not draw a 3px rim. */
+.rtree .node[data-dots="1"] .dot {
+  fill: var(--surface-raise); stroke: var(--border-strong); stroke-width: 1.2;
+  vector-effect: non-scaling-stroke;
+}
+.rtree .node[data-dots="1"][data-state="live"] .dot { fill: var(--cursor); stroke: var(--cursor); }
+.rtree .node[data-dots="1"][data-state="ok"]   .dot { fill: var(--settled); stroke: var(--settled-edge); }
+.rtree .node[data-dots="1"][data-state="fail"] .dot { fill: var(--pruned-soft); stroke: var(--pruned); }
+.rtree .node[data-dots="1"][data-memo="1"]     .dot { fill: var(--read-soft); stroke: var(--read); }
+.rtree .node[data-dots="1"][data-linked="1"]   .dot { stroke: var(--read); stroke-width: 2.5; }
+.rtree .node[data-dots="1"][data-state="fail"] { opacity: 0.75; }
+
+/* Only the live path and the hovered node are named. */
+.rtree .dotlabel {
+  font-family: var(--font-mono); font-size: 7px; fill: var(--text);
+  text-anchor: middle; paint-order: stroke;
+  stroke: var(--surface); stroke-width: 2.5px; stroke-linejoin: round;
+}
+.rtree .node[data-dots="1"] .hit { cursor: pointer; }

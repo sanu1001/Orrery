@@ -11,7 +11,12 @@ export default function TopBar({ catalog, algo, onPick, trace, theme, onTheme, o
   const grouped = groupByFamily(catalog);
   return (
     <header className="topbar">
-      <div className="logo"><Glyph /> Orrery</div>
+      <div className="logo">
+        {/* alt is empty and the wordmark carries the name: the image and the
+            text say the same thing, and a screen reader announcing "Orrery
+            logo Orrery" is worse than announcing it once. */}
+        <img src="/orrery-logo.png" alt="" width="34" height="17" /> Orrery
+      </div>
 
       <select value={algo ?? ''} onChange={(e) => onPick(e.target.value)}
               aria-label="algorithm">
@@ -83,15 +88,3 @@ function summariseInput(trace) {
  * A filled body with two tilted orbits -- an orrery. Anything more is time not
  * spent on the renderers. UI_DESIGN.md 11.
  */
-function Glyph() {
-  return (
-    <svg viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="16" r="3.5" fill="var(--write)" />
-      <ellipse cx="16" cy="16" rx="13" ry="5.5" fill="none"
-               stroke="currentColor" strokeWidth="1.4" opacity="0.75" />
-      <ellipse cx="16" cy="16" rx="5.5" ry="13" fill="none"
-               stroke="currentColor" strokeWidth="1.4" opacity="0.75"
-               transform="rotate(28 16 16)" />
-    </svg>
-  );
-}

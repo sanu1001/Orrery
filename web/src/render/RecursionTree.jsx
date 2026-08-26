@@ -31,13 +31,27 @@ export default function RecursionTree({ store, spec, version, focus, onFocus }) 
 
   // Layout is memoised on the call tree's identity: computed once per trace,
   // never per step, and never inside a render pass that could be re-entered.
-  const { layout, nodeW } = useMemo(() => {
+  const { layout, nodeW, dots } = useMemo(() => {
+    const shape = { kids: tree.nodes.map((n) => n.kids), roots: tree.roots, depth: [] };
     const labels = tree.nodes.map(nodeLabel);
     const w = Math.max(46, 12 + Math.max(4, ...labels.map((l) => l.length)) * 7);
-    return {
-      layout: tidyTree({ kids: tree.nodes.map((n) => n.kids), roots: tree.roots, depth: [] }, w, NODE_H),
-      nodeW: w,
-    };
+    const boxed = tidyTree(shape, w, NODE_H);
+
+    // If every node cannot carry its label at a readable size, stop pretending.
+    //
+    // A labelled box reserves room for its text, so a tree of nineteen leaves
+    // lays out 1246 units wide and the camera fits it at 0.65 -- text at seven
+    // effective pixels. Shrinking the box does not help: the layout shrinks
+    // with it and the scale rises to match, so the label ends up the same size
+    // it was. The width per leaf is the constant, and at this pane it is about
+    // 24px.
+    //
+    // So past that point the nodes become DOTS and the labels move to the live
+    // path only. The shape of the search is what a wide tree is for -- where it
+    // branched, where it gave up -- and thirty legible dots carry that where
+    // thirty illegible boxes carry neither shape nor name.
+    if (boxed.maxX - boxed.minX <= FIT_W) return { layout: boxed, nodeW: w, dots: false };
+    return { layout: tidyTree(shape, DOT_W, NODE_H), nodeW: DOT_W, dots: true };
   }, [tree]);
 
   const evIdx = store.eventIndex;
@@ -88,6 +102,8 @@ export default function RecursionTree({ store, spec, version, focus, onFocus }) 
         {visible.map((ord) => (
           <Node key={ord} ord={ord} n={tree.nodes[ord]}
                 x={layout.x[ord]} y={layout.y[ord]} w={nodeW}
+                dots={dots}
+                labelled={!dots || stack.has(ord) || focus?.ord === ord}
                 state={lifecycle(tree.nodes[ord], evIdx, stack, failWhen)}
                 memo={tree.nodes[ord].isMemoHit}
                 linked={lit.ords.has(ord)}
@@ -99,22 +115,40 @@ export default function RecursionTree({ store, spec, version, focus, onFocus }) 
   );
 }
 
-const Node = memo(function Node({ ord, n, x, y, w, state, memo, linked, onFocus }) {
+const Node = memo(function Node({ ord, n, x, y, w, state, memo, linked, dots, labelled, onFocus }) {
   const label = nodeLabel(n);
   const ret = n.retEvent >= 0 ? fmtValue(n.retValue) : '';
+  const common = {
+    className: 'node enter',
+    'data-state': state, 'data-memo': memo ? 1 : 0, 'data-linked': linked ? 1 : 0,
+    'data-dots': dots ? 1 : 0,
+    'data-anchor': `$calls ${ord}`,
+    transform: `translate(${x} ${y})`,
+    onMouseEnter: () => onFocus?.({ kind: 'call', event: n.id, ord }),
+    onMouseLeave: () => onFocus?.(null),
+  };
+
+  if (dots) {
+    return (
+      <g {...common}>
+        {/* A generous invisible target. The dot is four units across and the
+            pointer is not; without this, hovering a node in a dense tree is a
+            game of skill rather than a way to read it. */}
+        <circle className="hit" r={9} fill="transparent" />
+        <circle className="dot" r={4} />
+        {labelled && <text className="dotlabel" y={-9}>{label}{memo ? ' ~' : ''}</text>}
+      </g>
+    );
+  }
   return (
-    <g className="node enter" data-state={state} data-memo={memo ? 1 : 0}
-       data-linked={linked ? 1 : 0}
-       data-anchor={`$calls ${ord}`}
-       transform={`translate(${x} ${y})`}
-       onMouseEnter={() => onFocus?.({ kind: 'call', event: n.id, ord })}
-       onMouseLeave={() => onFocus?.(null)}>
+    <g {...common}>
       <rect x={-w / 2} y={-NODE_H / 2} width={w} height={NODE_H} />
       <text y={ret ? -4 : 0}>{label}{memo ? ' ~' : ''}</text>
       {ret && <text y={8} style={{ fontSize: 9, opacity: 0.75 }}>= {ret}</text>}
     </g>
   );
 }, (a, b) => a.state === b.state && a.memo === b.memo && a.linked === b.linked &&
+             a.dots === b.dots && a.labelled === b.labelled &&
              a.x === b.x && a.y === b.y && a.n.retEvent === b.n.retEvent);
 
 function nodeLabel(n) {
@@ -206,6 +240,11 @@ function descendants(tree, ord, depth) {
  * whatever the current zoom happened to make of it.
  */
 const VIEW_W = 1000, VIEW_H = 700, CAM_PAD = 48;
+const FIT_W = VIEW_W - CAM_PAD * 2;
+
+// Dot spacing. Wide enough that adjacent dots read as separate at any scale the
+// camera picks, narrow enough that a forty-leaf search still fits.
+const DOT_W = 18;
 
 // A three-node tree must not be blown up until each node reads as a billboard.
 // Past roughly 2x a 26px node stops looking like a label on a diagram and

@@ -38,9 +38,14 @@ export default function ViewGrid({ store, trace, version, focus, onFocus, onPin 
 
 function ViewPane({ spec, store, version, focus, onFocus, onPin }) {
   const Renderer = rendererFor(spec.family);
+  // A structure two rows tall does not need an equal share of the column. The
+  // memo table in coins-memo is 1x12 -- 57px of content in a 256px pane -- and
+  // the height it was given came out of the recursion tree, which is the pane
+  // that could actually use it.
+  const compact = isCompact(spec, store);
   const unknown = !Renderer || (PLANNED.has(spec.family) && Renderer.name === 'Fallback');
   return (
-    <section className="pane" data-family={spec.family}>
+    <section className="pane" data-family={spec.family} data-compact={compact ? 1 : 0}>
       <div className="pane-head">
         <span className="title">{spec.title ?? spec.s}</span>
         <span style={{ marginLeft: 'auto', textTransform: 'none' }}>{spec.family}</span>
@@ -115,6 +120,24 @@ function resolveAnchors(focus, store) {
   const cell = [...lit.cells][0];
   if (ord === undefined || cell === undefined) return [];
   return [`$calls ${ord}`, cell];
+}
+
+/**
+ * Whether a view should size to its content rather than take a share of the
+ * column.
+ *
+ * Read from the DECLARED dims, not from what has been written so far, so the
+ * pane does not resize as the run fills the table -- the same reason layout
+ * runs on the union. A structure with no declared dims is not compact, because
+ * a tree or a graph can grow without limit and a pane that grew with it would
+ * push everything else off screen.
+ */
+function isCompact(spec, store) {
+  const u = store?.index?.structUnion?.get(spec.s);
+  const dims = u?.dims;
+  if (!Array.isArray(dims)) return false;
+  const rows = dims.length === 1 ? 1 : dims[0];
+  return rows <= 2;
 }
 
 const cssEscape = (s) => s.replace(/(["\\])/g, '\\$1');
