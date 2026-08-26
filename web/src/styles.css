@@ -226,8 +226,12 @@ input, select {
    screen and 22% of an 1800 one, so the wider your display the smaller the
    code got -- the opposite of what more room should buy. Clamped at both ends
    so the centre column still wins the extra space. */
+/* The code rail gets the larger share and the inspector the smaller. The
+   inspector holds short readouts that wrap happily; source is the one column
+   where running out of width costs comprehension rather than tidiness -- an
+   algorithm you cannot read is a video, not an explanation. */
 .workspace[data-wide="1"] {
-  grid-template-columns: clamp(420px, 26vw, 560px) 1fr clamp(360px, 21vw, 440px);
+  grid-template-columns: clamp(500px, 40vw, 780px) 1fr clamp(300px, 17vw, 360px);
 }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; } }
 
@@ -639,7 +643,7 @@ input, select {
    back to looking like a code row without giving up what made it a button. */
 /* The hit count sits on the RIGHT, past the code, the way a profiler puts it.
    In the gutter it competed with the line number for the same glance. */
-.codeline { display: grid; grid-template-columns: 2.5ch 1fr auto; gap: var(--s3);
+.codeline { display: grid; grid-template-columns: 3.5ch 1fr auto; gap: var(--s3);
             padding: 0 var(--s4) 0 var(--s3); width: 100%; align-items: start;
             text-align: left; background: none; border: 0; color: inherit; font: inherit;
             /* break-word, not anywhere. "anywhere" splits identifiers
@@ -656,7 +660,11 @@ div.codeline  { cursor: default; }
    in row 2 column 1 -- the 19.5px line-number column -- and wrapped at two
    characters. It only ever happened on lines that HAD a hit count, which is
    why most of the file looked correct. */
-.codeline .n { grid-column: 1; grid-row: 1; color: var(--text-mute); text-align: right; }
+/* nowrap and 3.5ch: at 2.5ch a three-digit line number wrapped, so line 100
+   rendered as "10" over "0" and the gutter stopped being a column of numbers
+   a third of the way down every file longer than 99 lines. */
+.codeline .n { grid-column: 1; grid-row: 1; color: var(--text-mute);
+               text-align: right; white-space: nowrap; }
 .codeline .t { grid-column: 2; grid-row: 1; }
 .codeline .t { color: var(--text-dim); }
 /* The executing line is a left RAIL plus a wash, not a full amber block. A
@@ -688,7 +696,7 @@ div.codeline  { cursor: default; }
             font: inherit; font-size: 0.82em; color: var(--text-mute);
             background: var(--surface-raise); border: 1px solid var(--border);
             border-radius: var(--r-chip);
-            margin: var(--s2) var(--s4) var(--s2) calc(2.5ch + var(--s3) + var(--s3));
+            margin: var(--s2) var(--s4) var(--s2) calc(3.5ch + var(--s3) + var(--s3));
             padding: 3px 10px; }
 .codefold:hover { color: var(--text-dim); }
 .codefold.open { background: none; }
