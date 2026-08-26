@@ -24,6 +24,17 @@ import { addrLabel, fmtValue } from './value.js';
  * @property {string} because
  * @property {Array<{label:string, value:string, s:string, at:Array}>} where
  * @property {number} ln
+ *
+ * The fields below carry the SAME facts as `lead`, unformatted. `lead` spends
+ * glyphs to be compact on screen; a screen reader drops most of them, so
+ * lib/announce.js rebuilds the sentence in words from these instead. Deriving
+ * speech by string-surgery on `lead` would be the obvious alternative and it
+ * rots: the two would drift, and sighted and blind users would be told
+ * different things about the same step.
+ * @property {Array<{label:string, s:string, at:Array, from:*, to:*}>} [writes]
+ * @property {{fn:string, args:Array<{n:string,v:*}>}} [call]
+ * @property {*} [ret]
+ * @property {string} [created]
  */
 
 /**
@@ -55,12 +66,13 @@ export function explain(events, index) {
 
   switch (primary.t) {
     case 'init':
-      return { ...empty, kind: 'init', lead: `${primary.s} created`, ln: primary.ln ?? 0 };
+      return { ...empty, kind: 'init', lead: `${primary.s} created`, created: primary.s, ln: primary.ln ?? 0 };
 
     case 'call': {
       const args = (primary.args ?? []).map((a) => `${a.n}=${fmtValue(a.v)}`).join(', ');
       return {
         kind: 'call', lead: `${primary.fn}(${args})`,
+        call: { fn: primary.fn, args: primary.args ?? [] },
         because: note, where, ln: primary.ln ?? 0,
       };
     }
@@ -80,6 +92,7 @@ export function explain(events, index) {
       }
       return {
         kind: 'ret', lead: `returns ${fmtValue(primary.v)}`,
+        ret: primary.v,
         because, where, ln: primary.ln ?? 0,
       };
     }
@@ -97,6 +110,10 @@ export function explain(events, index) {
       }
       return {
         kind: 'set', lead,
+        writes: writes.map((e) => ({
+          label: addrLabel(e.s, e.at ?? []), s: e.s, at: e.at ?? [],
+          from: e.from, to: e.to,
+        })),
         because: note || primary.expr || '',
         where, ln: primary.ln ?? 0,
       };

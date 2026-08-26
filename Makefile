@@ -30,8 +30,8 @@ traces:         ## generate the static traces + catalogue the frontend ships wit
 conformance:    ## the Go player vs the JS player, step by step, on every golden
 	@./scripts/conformance.sh
 
-webtest:        ## JS-side tests: tidy-tree properties and the player
-	@cd web && node scripts/tidytree.test.mjs && node scripts/tree.test.mjs && node scripts/player.test.mjs
+webtest:        ## JS-side tests: tidy-tree, the player, screen-reader speech
+	@cd web && node scripts/tidytree.test.mjs && node scripts/tree.test.mjs && node scripts/player.test.mjs && node scripts/announce.test.mjs
 
 run:            ## the API server (optional -- the app works without it)
 	@# orreryd reads real env vars, never a file: BACKEND.md 8 rejects a config
