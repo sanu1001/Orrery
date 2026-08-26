@@ -4,38 +4,11 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/sanu1001/orrery/internal/algos"
+	"github.com/sanu1001/orrery/internal/gen"
 )
 
-// CatalogEntry is what the picker and the generated input form consume.
-//
-// It is derived entirely from Spec, which is why adding a thirteenth algorithm
-// needs no frontend change: write one Go file, and the picker, the form, the
-// bounds check and the code pane all follow.
-type CatalogEntry struct {
-	ID     string            `json:"id"`
-	Title  string            `json:"title"`
-	Family string            `json:"family"`
-	Blurb  string            `json:"blurb"`
-	Tags   []string          `json:"tags,omitempty"`
-	Inputs []algos.InputSpec `json:"inputs"`
-}
-
-// Catalog returns every registered algorithm, sorted for display.
-func Catalog() []CatalogEntry {
-	specs := algos.All()
-	out := make([]CatalogEntry, 0, len(specs))
-	for _, s := range specs {
-		out = append(out, CatalogEntry{
-			ID: s.ID, Title: s.Title, Family: s.Family,
-			Blurb: s.Blurb, Tags: s.Tags, Inputs: s.Inputs,
-		})
-	}
-	return out
-}
-
 func cmdCatalog(args []string) error {
-	b, err := json.MarshalIndent(Catalog(), "", "  ")
+	b, err := json.MarshalIndent(gen.Catalog(), "", "  ")
 	if err != nil {
 		return err
 	}

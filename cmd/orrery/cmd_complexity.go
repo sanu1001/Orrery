@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/sanu1001/orrery/internal/algos"
+	"github.com/sanu1001/orrery/internal/gen"
 	"github.com/sanu1001/orrery/internal/trace"
 )
 
@@ -76,7 +77,7 @@ func cmdComplexity(args []string) error {
 			if !ok {
 				break
 			}
-			t, err := Generate(spec.ID, in, 0, 5*time.Second)
+			t, err := gen.Generate(spec.ID, in, 0, 5*time.Second)
 			if err != nil {
 				return fmt.Errorf("%s at n=%d: %w", spec.ID, n, err)
 			}

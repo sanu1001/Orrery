@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"github.com/sanu1001/orrery/internal/algos"
+	"github.com/sanu1001/orrery/internal/gen"
 	"github.com/sanu1001/orrery/internal/trace"
-	"github.com/sanu1001/orrery/internal/tracer"
 )
 
 func cmdLs(args []string) error {
@@ -124,32 +124,6 @@ func parseFlags(spec algos.Spec, args []string) (algos.Args, string, error) {
 	return out, outFile, nil
 }
 
-// Generate runs one algorithm and returns its trace. Shared by the CLI, the
-// server and the golden-fixture generator, so all three produce byte-identical
-// output for the same inputs -- which is what makes goldens meaningful.
-func Generate(id string, in algos.Args, seed int64, deadline time.Duration) (*trace.Trace, error) {
-	spec, ok := algos.Lookup(id)
-	if !ok {
-		return nil, fmt.Errorf("unknown algorithm %q (try `orrery ls`)", id)
-	}
-	resolved, err := spec.Resolve(in)
-	if err != nil {
-		return nil, fmt.Errorf("%s: %w", id, err)
-	}
-	cfg := tracer.Config{
-		Algo: spec.ID, Title: spec.Title, Input: resolved, Seed: seed,
-		Source: spec.Source,
-	}
-	if deadline > 0 {
-		cfg.Deadline = time.Now().Add(deadline)
-	}
-	tr := tracer.New(cfg)
-	if err := spec.Run(tr, resolved); err != nil && tr.Err() == nil {
-		return nil, err
-	}
-	return tr.Trace(), nil
-}
-
 func cmdTrace(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: orrery trace <algo> [--key=value] [-o file]")
@@ -164,7 +138,7 @@ func cmdTrace(args []string) error {
 		return err
 	}
 
-	t, err := Generate(id, in, 0, 5*time.Second)
+	t, err := gen.Generate(id, in, 0, 5*time.Second)
 	if err != nil {
 		return err
 	}
@@ -235,7 +209,7 @@ func cmdBench(args []string) error {
 	fmt.Printf("%-6s %10s %10s %10s %12s\n", sweep.Name, "events", "steps", "calls", "gen")
 	for n := sweep.Min; n <= max; n++ {
 		start := time.Now()
-		t, err := Generate(id, algos.Args{sweep.Name: n}, 0, 5*time.Second)
+		t, err := gen.Generate(id, algos.Args{sweep.Name: n}, 0, 5*time.Second)
 		if err != nil {
 			return err
 		}
