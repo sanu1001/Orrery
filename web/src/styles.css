@@ -76,6 +76,10 @@
   --font-mono: "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
 
   --t-xs: 10px; --t-sm: 11.5px; --t-md: 13px;
+  /* Source has its own size. It is the one surface people READ rather than
+     scan, and tying it to the UI scale meant every adjustment elsewhere had to
+     argue with legibility here. */
+  --t-code: 14px;
   --t-lg: 15px; --t-xl: 20px; --t-2xl: 28px;
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
@@ -218,7 +222,13 @@ input, select {
 /* 420px, not 340. The design asks for a column "sized to the longest real
    line"; at 13px mono that is about 52 characters, which fits the body of
    every built-in without wrapping. */
-.workspace[data-wide="1"] { grid-template-columns: 420px 1fr 360px; }
+/* The rails GROW with the window. Fixed at 420px they were 29% of a 1440
+   screen and 22% of an 1800 one, so the wider your display the smaller the
+   code got -- the opposite of what more room should buy. Clamped at both ends
+   so the centre column still wins the extra space. */
+.workspace[data-wide="1"] {
+  grid-template-columns: clamp(420px, 26vw, 560px) 1fr clamp(360px, 21vw, 440px);
+}
 @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; } }
 
 /* The code rail. Same surface as the inspector so the centre column reads as
@@ -619,7 +629,7 @@ input, select {
    columns per level meant a body line inside a for inside a func started a
    third of the way across the rail and then wrapped twice. That one default
    was most of why this pane was unreadable. */
-.codepane { font-family: var(--font-mono); font-size: var(--t-md); line-height: 1.65;
+.codepane { font-family: var(--font-mono); font-size: var(--t-code); line-height: 1.65;
             tab-size: 2; -moz-tab-size: 2;
             background: transparent; padding-bottom: var(--s3);
             flex: 1; overflow-y: auto; overflow-x: hidden; min-height: 0; }
@@ -640,7 +650,14 @@ input, select {
 button.codeline { cursor: pointer; }
 div.codeline  { cursor: default; }
 .codeline:hover { background: var(--surface-raise); }
-.codeline .n { color: var(--text-mute); text-align: right; }
+/* EVERY cell is placed explicitly. Auto-placement was the bug: .hits carries
+   an explicit grid-column of 3, and under sparse packing that advances the
+   placement cursor past the end of the row, so the code span after it landed
+   in row 2 column 1 -- the 19.5px line-number column -- and wrapped at two
+   characters. It only ever happened on lines that HAD a hit count, which is
+   why most of the file looked correct. */
+.codeline .n { grid-column: 1; grid-row: 1; color: var(--text-mute); text-align: right; }
+.codeline .t { grid-column: 2; grid-row: 1; }
 .codeline .t { color: var(--text-dim); }
 /* The executing line is a left RAIL plus a wash, not a full amber block. A
    block that saturated fought the syntax colours inside it for the same
@@ -654,13 +671,13 @@ div.codeline  { cursor: default; }
    accent. Amber already means "written this step" everywhere, and a second
    meaning for it in the gutter would break the one-colour-one-meaning rule
    that the explanations refer to in words. Opacity carries the heat instead. */
-.codeline .hits { grid-column: 3; color: var(--text-mute); text-align: right;
+.codeline .hits { grid-column: 3; grid-row: 1; color: var(--text-mute); text-align: right;
                   font-size: 0.82em; font-variant-numeric: tabular-nums;
                   align-self: start; }
 
 /* Values written by the current step, shown on the line that wrote them.
    Amber, because that is what amber means. */
-.codeline .inlinevals { grid-column: 2; display: flex; flex-wrap: wrap; gap: var(--s2);
+.codeline .inlinevals { grid-column: 2; grid-row: 2; display: flex; flex-wrap: wrap; gap: var(--s2);
                         margin-top: 2px; white-space: normal; }
 .codeline .iv { font-size: 0.85em; color: var(--write);
                 background: color-mix(in srgb, var(--write) 12%, transparent);

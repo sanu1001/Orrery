@@ -129,7 +129,7 @@ export default function CodePane({ store, trace, version }) {
           }
 
           const steps = lineIndex?.get(ln);
-          const hits = lineHits(lineIndex, ln);
+          const hits = lineHits(lineIndex, ln, store?.step ?? 0);
           const isCur = ln === cur;
           const heat = peak > 0 && hits > 0 ? Math.min(1, hits / peak) : 0;
 

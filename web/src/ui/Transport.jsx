@@ -3,6 +3,33 @@ import { useMemo } from 'react';
 import { stepDensity, peakWeight } from '../player/density.js';
 
 /**
+ * Height encodes KIND first and density second.
+ *
+ * Density alone was the obvious reading of "tall ticks are placements", and it
+ * renders as a flat wall: most traces emit one event per step, so every tick
+ * came out the same height and colour was left as the only channel. That fails
+ * WCAG 1.4.1 -- colour must never be the sole carrier of information -- and it
+ * threw away the distinction the design was actually asking for. Weight still
+ * modulates within a kind, so a grouped swap stands proud of a single write.
+ */
+/* The multiplier is relative to 1x, which is 0.75 steps per second -- roughly
+   the rate at which a step's explanation can actually be read. The ladder used
+   to start at 1 step per second and top out at 8, which made every setting a
+   choice between too fast and much too fast. */
+const SPEEDS = [
+  { label: '1×', sps: 0.75 },
+  { label: '2×', sps: 1.5 },
+  { label: '4×', sps: 3 },
+  { label: '8×', sps: 6 },
+];
+
+const BASE = { write: 100, revert: 45, call: 25, ret: 18 };
+
+function tickHeight(t, peak) {
+  return BASE[t.kind] * (0.7 + 0.3 * (t.weight / peak));
+}
+
+/**
  * Play, step, scrub, speed, detail level.
  *
  * The scrubber calls store.seek() directly on every input event -- no
@@ -15,22 +42,6 @@ import { stepDensity, peakWeight } from '../player/density.js';
  * complete before the first frame, so the shape of the search is knowable
  * before you play it -- where the work clusters, and where it gave up.
  */
-/**
- * Height encodes KIND first and density second.
- *
- * Density alone was the obvious reading of "tall ticks are placements", and it
- * renders as a flat wall: most traces emit one event per step, so every tick
- * came out the same height and colour was left as the only channel. That fails
- * WCAG 1.4.1 -- colour must never be the sole carrier of information -- and it
- * threw away the distinction the design was actually asking for. Weight still
- * modulates within a kind, so a grouped swap stands proud of a single write.
- */
-const BASE = { write: 100, revert: 45, call: 25, ret: 18 };
-
-function tickHeight(t, peak) {
-  return BASE[t.kind] * (0.7 + 0.3 * (t.weight / peak));
-}
-
 export default function Transport({ store, version, hasBreakpoints, canContinue }) {
   const ticks = useMemo(
     () => (store ? stepDensity(store.trace, store.index) : []),
@@ -87,9 +98,9 @@ export default function Transport({ store, version, hasBreakpoints, canContinue 
       </div>
 
       <div className="seg" role="group" aria-label="speed">
-        {[1, 2, 4, 8].map((s) => (
-          <button key={s} aria-pressed={store.speed === s}
-                  onClick={() => store.setSpeed(s)}>{s}×</button>
+        {SPEEDS.map((s) => (
+          <button key={s.label} aria-pressed={store.speed === s.sps}
+                  onClick={() => store.setSpeed(s.sps)}>{s.label}</button>
         ))}
       </div>
 

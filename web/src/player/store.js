@@ -41,7 +41,11 @@ export class PlayerStore {
     this._listeners = new Set();
     this._timer = null;
     this._flashTimer = null;
-    this._sps = 2; // steps per second
+    // 0.75 steps per second, not 2. The explanation pane and the live region
+    // both emit a sentence per step, and at two per second the next one
+    // replaces it before the first has been read -- so playback showed you
+    // that something was happening without letting you learn what.
+    this._sps = 0.75; // steps per second
     this._animate = true;
     /** @type {import('./breakpoints.js').Breakpoint[]} */
     this._bps = [];

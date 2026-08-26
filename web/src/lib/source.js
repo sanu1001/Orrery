@@ -148,8 +148,20 @@ function pill(n, withInit) {
  * @param {number} ln
  * @returns {number}
  */
-export function lineHits(lineIndex, ln) {
-  return lineIndex?.get(ln)?.length ?? 0;
+export function lineHits(lineIndex, ln, upToStep) {
+  const steps = lineIndex?.get(ln);
+  if (!steps) return 0;
+  if (upToStep === undefined) return steps.length;
+  // Counted AS THE TRACE RUNS, not over the whole trace. Showing the final
+  // total from step 0 turns a live profile into a spoiler: every line already
+  // wearing its finished count says nothing about where execution has been.
+  // The array is built in step order, so this is a bisect, not a filter.
+  let lo = 0, hi = steps.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (steps[mid] < upToStep) lo = mid + 1; else hi = mid;
+  }
+  return lo;
 }
 
 /**
