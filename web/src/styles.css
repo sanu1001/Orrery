@@ -79,7 +79,7 @@
   /* Source has its own size. It is the one surface people READ rather than
      scan, and tying it to the UI scale meant every adjustment elsewhere had to
      argue with legibility here. */
-  --t-code: 14px;
+  --t-code: 12.5px;
   --t-lg: 15px; --t-xl: 20px; --t-2xl: 28px;
 
   --s1: 4px; --s2: 8px; --s3: 12px; --s4: 16px;
@@ -231,7 +231,7 @@ input, select {
    where running out of width costs comprehension rather than tidiness -- an
    algorithm you cannot read is a video, not an explanation. */
 .workspace[data-wide="1"] {
-  grid-template-columns: clamp(500px, 40vw, 780px) 1fr clamp(300px, 17vw, 360px);
+  grid-template-columns: clamp(430px, 36vw, 660px) 1fr clamp(300px, 17vw, 360px);
 }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; } }
 

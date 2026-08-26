@@ -67,7 +67,47 @@ export function foldableRanges(text, lang, firstLine = 1) {
     folds.push({ from: firstLine, to: firstLine + end, label: pill(end - i + 1) });
   }
 
+  // The registration block, wherever it sits.
+  //
+  // absorbInit only reaches an init() that directly follows the imports, and
+  // several algorithms declare a const between the two -- coins-memo has its
+  // noSolution sentinel there, which is real code and must stay visible. So
+  // init is also folded on its own, as a second pill, when it was not already
+  // swallowed by the first.
+  const initAt = topLevelInit(lines);
+  if (initAt >= 0 && !folds.some((f) => firstLine + initAt <= f.to)) {
+    const end = blockEnd(lines, initAt);
+    if (end > initAt) {
+      folds.push({
+        from: firstLine + initAt,
+        to: firstLine + end,
+        label: 'the registration block',
+      });
+    }
+  }
+
   return folds;
+}
+
+/** Index of a top-level `func init() {`, or -1. */
+function topLevelInit(lines) {
+  for (let i = 0; i < lines.length; i++) {
+    if (/^func init\(\)\s*\{/.test(lines[i])) return i;
+  }
+  return -1;
+}
+
+/** Index of the line closing the brace opened on `start`, or start. */
+function blockEnd(lines, start) {
+  let depth = 0;
+  for (let k = start; k < lines.length; k++) {
+    for (const ch of lines[k]) {
+      if (ch === '{') depth++;
+      else if (ch === '}') depth--;
+    }
+    if (depth === 0) return k;
+  }
+  return start;
 }
 
 /**
