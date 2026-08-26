@@ -601,7 +601,29 @@ div.codeline  { cursor: default; }
 .transport .btns button.play { width: 44px; }
 .counter { font-family: var(--font-mono); font-variant-numeric: tabular-nums;
            color: var(--text-dim); font-size: var(--t-sm); white-space: nowrap; }
-.scrub { flex: 1; accent-color: var(--cursor); min-width: 80px; }
+.scrubwrap { position: relative; flex: 1; min-width: 80px; display: flex; align-items: center; }
+.scrub { width: 100%; accent-color: var(--cursor); position: relative; z-index: 1; background: transparent; }
+
+/* The density track sits behind the scrubber. pointer-events:none so it never
+   steals a drag from the control it decorates. */
+.density { position: absolute; inset: 0 0 auto 0; top: 50%; transform: translateY(-50%);
+           height: 18px; display: flex; align-items: flex-end; gap: 0;
+           pointer-events: none; opacity: 0.5; }
+.density .tick { flex: 1 1 0; min-width: 1px; align-self: flex-end; }
+
+/* Amber = written this step, rose = failed branch/backtracked. The same two
+   meanings these colours carry everywhere else, which is why the redesign's
+   proposed indigo was not adopted: it would have been a sixth hue meaning
+   something four of the existing five already say. */
+.density .tick[data-kind="write"]  { background: var(--write); }
+.density .tick[data-kind="revert"] { background: var(--pruned); }
+.density .tick[data-kind="call"]   { background: var(--text-mute); }
+.density .tick[data-kind="ret"]    { background: var(--text-mute); opacity: 0.5; }
+
+/* Available to assistive technology, invisible on screen. clip-path rather than
+   display:none, which would remove it from the accessibility tree too. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+           overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .seg { display: flex; border: 1px solid var(--border); border-radius: var(--r-chip); overflow: hidden; }
 .seg button { border: none; border-radius: 0; padding: var(--s1) var(--s2); font-size: var(--t-sm); }
 .seg button[aria-pressed="true"] { background: var(--surface-raise); color: var(--text); }
