@@ -148,8 +148,21 @@ input, select {
 
 .spacer { flex: 1; }
 
+/* Split Studio: code rail | tree field | inspector.
+   The centre column is 1fr and the rails are fixed, so growing the window
+   grows the VISUALISATION rather than the furniture -- which is the column the
+   camera then fills, and the reason the tree can be worth zooming into. */
 .workspace { display: grid; grid-template-columns: 1fr 360px; min-height: 0; }
+.workspace[data-wide="1"] { grid-template-columns: 340px 1fr 360px; }
 @media (max-width: 1100px) { .workspace { grid-template-columns: 1fr; } }
+
+/* The code rail. Same surface as the inspector so the centre column reads as
+   the subject and both rails as apparatus. */
+.coderail {
+  border-right: 1px solid var(--border);
+  background: var(--surface);
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden;
+}
 
 .panes { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
 .panes.split-h { flex-direction: row; }

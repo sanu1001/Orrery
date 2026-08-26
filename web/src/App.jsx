@@ -16,6 +16,7 @@ import ViewGrid from './ui/ViewGrid.jsx';
 import CodePane from './ui/CodePane.jsx';
 import ExplainPane from './ui/ExplainPane.jsx';
 import FamilyPane from './ui/FamilyPane.jsx';
+import { useMedia } from './ui/useMedia.js';
 import CallStackPane from './ui/CallStackPane.jsx';
 import WatchPane from './ui/WatchPane.jsx';
 import ComplexityPane from './ui/ComplexityPane.jsx';
@@ -60,6 +61,12 @@ export default function App() {
   // exclusive: one of them names where the current trace came from, and a
   // dropped file has no catalogue id and therefore no URL to be shared by.
   const [fileName, setFileName] = useState('');
+
+  // Split Studio: code rail | tree field | inspector. Below this the code pane
+  // folds back into the inspector rather than disappearing -- three columns at
+  // 1280px leaves the tree about 400px, which is narrower than the thing the
+  // page is for.
+  const wide = useMedia('(min-width: 1440px)');
   const wantStep = useRef(readHash().step);
   // The bytes the current trace arrived as, kept so that downloading it hands
   // back the producer's file rather than a re-encoding. See downloadTrace.
@@ -358,7 +365,12 @@ export default function App() {
         </Banner>
       )}
 
-      <div className="workspace">
+      <div className="workspace" data-wide={wide ? 1 : 0}>
+        {wide && (
+          <aside className="coderail">
+            <CodePane store={store} trace={trace} version={version} />
+          </aside>
+        )}
         <div className="panes">
           {trace?.meta?.truncated && <TruncationBanner trace={trace} onPick={setAlgo} />}
           {loadState.status === 'invalid'
@@ -370,7 +382,7 @@ export default function App() {
         <aside className="sidepanel">
           <ExplainPane store={store} version={version} />
           <FamilyPane store={store} version={version} />
-          <CodePane store={store} trace={trace} version={version} />
+          {!wide && <CodePane store={store} trace={trace} version={version} />}
           <CallStackPane store={store} version={version}
                          focus={focus} onFocus={setFocusIfUnpinned} />
           <ComplexityPane algo={trace?.meta?.algo} data={growth} />
