@@ -1,0 +1,132 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "segtree",
+    "title": "Segment Tree (range sum)",
+    "lang": "go",
+    "input": {
+      "hi": 6,
+      "lo": 2,
+      "values": [
+        3,
+        1,
+        4,
+        1,
+        5,
+        9,
+        2,
+        6
+      ]
+    },
+    "source": {
+      "path": "internal/algos/heaps/segtree.go",
+      "text": "package heaps\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed segtree.go\nvar segtreeSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"segtree\",\n\t\tTitle:  \"Segment Tree (range sum)\",\n\t\tFamily: \"Trees\",\n\t\tBlurb:  \"Every node holds the sum of a range, so a query touches a handful of nodes instead of the whole array.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"values\", Kind: \"intList\", Max: 16,\n\t\t\t\tDefault: []int{3, 1, 4, 1, 5, 9, 2, 6},\n\t\t\t\tHelp:    \"up to 16 values; padded to a power of two\"},\n\t\t\t{Name: \"lo\", Kind: \"int\", Min: 0, Max: 15, Default: 2,\n\t\t\t\tHelp: \"first index of the range to sum\"},\n\t\t\t{Name: \"hi\", Kind: \"int\", Min: 0, Max: 15, Default: 6,\n\t\t\t\tHelp: \"last index of the range to sum\"},\n\t\t},\n\t\tDefaults: algos.Args{\n\t\t\t\"values\": []int{3, 1, 4, 1, 5, 9, 2, 6}, \"lo\": 2, \"hi\": 6,\n\t\t},\n\t\tSource:     trace.Source{Path: \"internal/algos/heaps/segtree.go\", Text: segtreeSrc, FirstLine: 1},\n\t\tTags:       []string{\"tree\", \"array\", \"range-query\"},\n\t\tComplexity: \"O(log n)\",\n\t\t// No Sweep. Padding to a power of two makes the tree size a STAIRCASE in\n\t\t// the input length -- n = 5 and n = 8 build the identical tree -- and a\n\t\t// curve fitted through a staircase says something about the padding\n\t\t// rather than about the algorithm. A measurement that cannot mean\n\t\t// anything is worse than no measurement. ROADMAP C3.\n\t\tRun: runSegtree,\n\t})\n}\n\n// A SEGMENT TREE IS THE OTHER HALF OF THE ARRAY/TREE DUALITY, and it is the\n// half where the tree reading is the one that explains the algorithm.\n//\n// Heapsort's tree shows you why the swaps are correct. Here the tree shows you\n// why the QUERY is fast: summing a[2..6] touches four nodes out of fifteen, and\n// the picture makes the count obvious in a way that the row of cells cannot.\n// The row still earns its pane -- it is where the answer lives, and it is the\n// thing being summed.\n//\n// Same mechanism as the heap and no new machinery: one `kind:\"array\"`\n// structure, `alsoAs: \"tree\"`, implicit children at 2i+1 and 2i+2. What it adds\n// is `subLabelOf`, a map from node index to the range that node covers. The\n// range is DATA the algorithm writes during construction, not something the\n// renderer derives -- deriving it would mean knowing this particular tree's\n// splitting convention, which is algorithm knowledge and forbidden (I2).\nfunc runSegtree(tr *tracer.Tracer, args algos.Args) error {\n\tvals := args.Ints(\"values\")\n\tif len(vals) == 0 {\n\t\tvals = []int{0}\n\t}\n\t// Padded to a power of two so the tree is PERFECT: 2p-1 nodes, every leaf at\n\t// the same depth, no gaps in the picture. The 4n-slot form used by most\n\t// implementations leaves more than half the array empty, and drawing those\n\t// empty slots would make the shape harder to read than the algorithm is.\n\tp := 1\n\tfor p \u003c len(vals) {\n\t\tp *= 2\n\t}\n\tlo, hi := clampRange(args.Int(\"lo\"), args.Int(\"hi\"), len(vals))\n\n\ta := tr.Array(\"a\", len(vals), 0)\n\ta.Fill(vals)\n\tt := tr.Array(\"t\", 2*p-1, 0)\n\tspan := tr.Map(\"span\", \"\")\n\tat := tr.Scalar(\"at\", -1).Aux()\n\tused := tr.Map(\"used\", false)\n\tacc := tr.Scalar(\"sum\", 0)\n\n\t// Spans are fixed geometry, so they all land in one construction step. The\n\t// alternative -- writing each node's range as the build reaches it -- makes\n\t// the label appear a step before the value and reads as a glitch.\n\ttr.Group(func() {\n\t\tvar mark func(node, l, r int)\n\t\tmark = func(node, l, r int) {\n\t\t\tspan.Set(itoa(node), itoa(l)+\"..\"+itoa(r))\n\t\t\tif l == r {\n\t\t\t\treturn\n\t\t\t}\n\t\t\tm := (l + r) / 2\n\t\t\tmark(2*node+1, l, m)\n\t\t\tmark(2*node+2, m+1, r)\n\t\t}\n\t\tmark(0, 0, p-1)\n\t}).Note(\"every node covers a range, and the ranges never change\")\n\n\ttr.View(\"linear\", \"t\", 0,\n\t\ttracer.Title(\"the segment tree\"),\n\t\ttracer.Opt(\"alsoAs\", \"tree\"),\n\t\ttracer.Opt(\"openAs\", \"tree\"),\n\t\ttracer.Opt(\"subLabelOf\", \"span\"),\n\t\ttracer.Opt(\"markOf\", \"used\"),\n\t\ttracer.Opt(\"cursors\", []any{\"at\"}),\n\t\ttracer.StartHere(tr))\n\ttr.View(\"linear\", \"a\", 1,\n\t\ttracer.Title(\"the values being summed\"),\n\t\ttracer.Opt(\"chips\", []any{\"sum\"}),\n\t\ttracer.Opt(\"regions\", []any{\n\t\t\tmap[string]any{\"name\": \"query\", \"from\": lo, \"to\": hi, \"style\": \"cursor\"},\n\t\t}))\n\n\t// --- build ---\n\tvar build func(node, l, r int)\n\tbuild = func(node, l, r int) {\n\t\tif l == r {\n\t\t\tv := 0\n\t\t\tif l \u003c len(vals) {\n\t\t\t\tv = a.Int(l)\n\t\t\t\tt.Set(node, v).\n\t\t\t\t\tBecause(\"a leaf holds one element\").\n\t\t\t\t\tFrom(a.Cell(l))\n\t\t\t} else {\n\t\t\t\t// The padding. Zero is the identity for a sum, so the padded\n\t\t\t\t// leaves cost nothing and the tree stays perfect. A different\n\t\t\t\t// combining operation would need a different identity, which is\n\t\t\t\t// the reason this is written rather than assumed.\n\t\t\t\tt.Set(node, 0).Note(\"padding: outside the input, and zero adds nothing\")\n\t\t\t}\n\t\t\treturn\n\t\t}\n\t\tm := (l + r) / 2\n\t\tbuild(2*node+1, l, m)\n\t\tbuild(2*node+2, m+1, r)\n\t\tleft, right := t.Int(2*node+1), t.Int(2*node+2)\n\t\tt.Set(node, left+right).\n\t\t\tBecause(\"%d + %d\", left, right).\n\t\t\tFrom(t.Cell(2*node+1), t.Cell(2*node+2))\n\t}\n\tbuild(0, 0, p-1)\n\n\t// --- query ---\n\tvar query func(node, l, r int) int\n\tquery = func(node, l, r int) int {\n\t\tat.Set(node).Note(\"look at the node covering %d..%d\", l, r)\n\t\tswitch {\n\t\tcase r \u003c lo || hi \u003c l:\n\t\t\t// A DISJOINT NODE IS THE INTERESTING REJECTION, and it is a step only\n\t\t\t// because `at` moved. Nothing is written, nothing is added, and the\n\t\t\t// whole subtree below it is skipped -- which is where the logarithm\n\t\t\t// comes from.\n\t\t\treturn 0\n\n\t\tcase lo \u003c= l \u0026\u0026 r \u003c= hi:\n\t\t\tv := t.Int(node)\n\t\t\twas := acc.Int()\n\t\t\ttr.Group(func() {\n\t\t\t\tused.Set(itoa(node), true)\n\t\t\t\tacc.Set(was+v).\n\t\t\t\t\tBecause(\"%d + %d, the whole of %d..%d\", was, v, l, r).\n\t\t\t\t\tFrom(t.Cell(node))\n\t\t\t}).Note(\"%d..%d is entirely inside the query -- take its sum whole\", l, r)\n\t\t\treturn v\n\t\t}\n\t\tm := (l + r) / 2\n\t\treturn query(2*node+1, l, m) + query(2*node+2, m+1, r)\n\t}\n\ttotal := query(0, 0, p-1)\n\n\ttr.Group(func() {\n\t\tat.Set(-1)\n\t}).Note(\"a[%d..%d] sums to %d, from %d nodes out of %d\", lo, hi, total, countUsed(used, 2*p-1), 2*p-1)\n\treturn tr.Err()\n}\n\n// clampRange keeps the query inside the input. The bounds in Spec.Inputs cap\n// each endpoint independently, so lo \u003e hi and hi past the end both arrive here\n// as legal input -- the security boundary cannot express a relation BETWEEN two\n// fields, only a range for each.\nfunc clampRange(lo, hi, n int) (int, int) {\n\tif hi \u003e n-1 {\n\t\thi = n - 1\n\t}\n\tif lo \u003e hi {\n\t\tlo = hi\n\t}\n\tif lo \u003c 0 {\n\t\tlo = 0\n\t}\n\treturn lo, hi\n}\n\nfunc countUsed(used *tracer.Map, n int) int {\n\tc := 0\n\tfor i := 0; i \u003c n; i++ {\n\t\tif used.At(itoa(i)) == true {\n\t\t\tc++\n\t\t}\n\t}\n\treturn c\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "linear",
+        "s": "t",
+        "pane": 0,
+        "title": "the segment tree",
+        "options": {
+          "alsoAs": "tree",
+          "cursors": [
+            "at"
+          ],
+          "markOf": "used",
+          "openAs": "tree",
+          "subLabelOf": "span"
+        },
+        "startEvent": 29
+      },
+      {
+        "family": "linear",
+        "s": "a",
+        "pane": 1,
+        "title": "the values being summed",
+        "options": {
+          "chips": [
+            "sum"
+          ],
+          "regions": [
+            {
+              "from": 2,
+              "name": "query",
+              "style": "cursor",
+              "to": 6
+            }
+          ]
+        }
+      }
+    ],
+    "counts": {
+      "events": 60,
+      "steps": 36,
+      "structs": 6
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"a","kind":"array","dims":[8],"fill":0,"ln":74},
+    {"t":"set","s":"a","at":[0],"from":0,"to":3,"ln":75,"g":1,"note":"input"},
+    {"t":"set","s":"a","at":[1],"from":0,"to":1,"ln":75,"g":1},
+    {"t":"set","s":"a","at":[2],"from":0,"to":4,"ln":75,"g":1},
+    {"t":"set","s":"a","at":[3],"from":0,"to":1,"ln":75,"g":1},
+    {"t":"set","s":"a","at":[4],"from":0,"to":5,"ln":75,"g":1},
+    {"t":"set","s":"a","at":[5],"from":0,"to":9,"ln":75,"g":1},
+    {"t":"set","s":"a","at":[6],"from":0,"to":2,"ln":75,"g":1},
+    {"t":"set","s":"a","at":[7],"from":0,"to":6,"ln":75,"g":1},
+    {"t":"init","s":"t","kind":"array","dims":[15],"fill":0,"ln":76},
+    {"t":"init","s":"span","kind":"map","fill":"","ln":77},
+    {"t":"init","s":"at","kind":"scalar","fill":-1,"aux":true,"ln":78},
+    {"t":"init","s":"used","kind":"map","fill":false,"ln":79},
+    {"t":"init","s":"sum","kind":"scalar","fill":0,"ln":80},
+    {"t":"set","s":"span","at":["0"],"from":"","to":"0..7","ln":88,"g":2,"note":"every node covers a range, and the ranges never change"},
+    {"t":"set","s":"span","at":["1"],"from":"","to":"0..3","ln":88,"g":2},
+    {"t":"set","s":"span","at":["3"],"from":"","to":"0..1","ln":88,"g":2},
+    {"t":"set","s":"span","at":["7"],"from":"","to":"0..0","ln":88,"g":2},
+    {"t":"set","s":"span","at":["8"],"from":"","to":"1..1","ln":88,"g":2},
+    {"t":"set","s":"span","at":["4"],"from":"","to":"2..3","ln":88,"g":2},
+    {"t":"set","s":"span","at":["9"],"from":"","to":"2..2","ln":88,"g":2},
+    {"t":"set","s":"span","at":["10"],"from":"","to":"3..3","ln":88,"g":2},
+    {"t":"set","s":"span","at":["2"],"from":"","to":"4..7","ln":88,"g":2},
+    {"t":"set","s":"span","at":["5"],"from":"","to":"4..5","ln":88,"g":2},
+    {"t":"set","s":"span","at":["11"],"from":"","to":"4..4","ln":88,"g":2},
+    {"t":"set","s":"span","at":["12"],"from":"","to":"5..5","ln":88,"g":2},
+    {"t":"set","s":"span","at":["6"],"from":"","to":"6..7","ln":88,"g":2},
+    {"t":"set","s":"span","at":["13"],"from":"","to":"6..6","ln":88,"g":2},
+    {"t":"set","s":"span","at":["14"],"from":"","to":"7..7","ln":88,"g":2},
+    {"t":"set","s":"t","at":[7],"from":0,"to":3,"expr":"a leaf holds one element","deps":[{"s":"a","at":[0],"v":3}],"ln":121},
+    {"t":"set","s":"t","at":[8],"from":0,"to":1,"expr":"a leaf holds one element","deps":[{"s":"a","at":[1],"v":1}],"ln":121},
+    {"t":"set","s":"t","at":[3],"from":0,"to":4,"expr":"3 + 1","deps":[{"s":"t","at":[7],"v":3},{"s":"t","at":[8],"v":1}],"ln":137},
+    {"t":"set","s":"t","at":[9],"from":0,"to":4,"expr":"a leaf holds one element","deps":[{"s":"a","at":[2],"v":4}],"ln":121},
+    {"t":"set","s":"t","at":[10],"from":0,"to":1,"expr":"a leaf holds one element","deps":[{"s":"a","at":[3],"v":1}],"ln":121},
+    {"t":"set","s":"t","at":[4],"from":0,"to":5,"expr":"4 + 1","deps":[{"s":"t","at":[9],"v":4},{"s":"t","at":[10],"v":1}],"ln":137},
+    {"t":"set","s":"t","at":[1],"from":0,"to":9,"expr":"4 + 5","deps":[{"s":"t","at":[3],"v":4},{"s":"t","at":[4],"v":5}],"ln":137},
+    {"t":"set","s":"t","at":[11],"from":0,"to":5,"expr":"a leaf holds one element","deps":[{"s":"a","at":[4],"v":5}],"ln":121},
+    {"t":"set","s":"t","at":[12],"from":0,"to":9,"expr":"a leaf holds one element","deps":[{"s":"a","at":[5],"v":9}],"ln":121},
+    {"t":"set","s":"t","at":[5],"from":0,"to":14,"expr":"5 + 9","deps":[{"s":"t","at":[11],"v":5},{"s":"t","at":[12],"v":9}],"ln":137},
+    {"t":"set","s":"t","at":[13],"from":0,"to":2,"expr":"a leaf holds one element","deps":[{"s":"a","at":[6],"v":2}],"ln":121},
+    {"t":"set","s":"t","at":[14],"from":0,"to":6,"expr":"a leaf holds one element","deps":[{"s":"a","at":[7],"v":6}],"ln":121},
+    {"t":"set","s":"t","at":[6],"from":0,"to":8,"expr":"2 + 6","deps":[{"s":"t","at":[13],"v":2},{"s":"t","at":[14],"v":6}],"ln":137},
+    {"t":"set","s":"t","at":[2],"from":0,"to":22,"expr":"14 + 8","deps":[{"s":"t","at":[5],"v":14},{"s":"t","at":[6],"v":8}],"ln":137},
+    {"t":"set","s":"t","at":[0],"from":0,"to":31,"expr":"9 + 22","deps":[{"s":"t","at":[1],"v":9},{"s":"t","at":[2],"v":22}],"ln":137},
+    {"t":"set","s":"at","at":[],"from":-1,"to":0,"ln":146,"note":"look at the node covering 0..7"},
+    {"t":"set","s":"at","at":[],"from":0,"to":1,"ln":146,"note":"look at the node covering 0..3"},
+    {"t":"set","s":"at","at":[],"from":1,"to":3,"ln":146,"note":"look at the node covering 0..1"},
+    {"t":"set","s":"at","at":[],"from":3,"to":4,"ln":146,"note":"look at the node covering 2..3"},
+    {"t":"set","s":"used","at":["4"],"from":false,"to":true,"ln":159,"g":3,"note":"2..3 is entirely inside the query -- take its sum whole"},
+    {"t":"set","s":"sum","at":[],"from":0,"to":5,"expr":"0 + 5, the whole of 2..3","deps":[{"s":"t","at":[4],"v":5}],"ln":160,"g":3},
+    {"t":"set","s":"at","at":[],"from":4,"to":2,"ln":146,"note":"look at the node covering 4..7"},
+    {"t":"set","s":"at","at":[],"from":2,"to":5,"ln":146,"note":"look at the node covering 4..5"},
+    {"t":"set","s":"used","at":["5"],"from":false,"to":true,"ln":159,"g":4,"note":"4..5 is entirely inside the query -- take its sum whole"},
+    {"t":"set","s":"sum","at":[],"from":5,"to":19,"expr":"5 + 14, the whole of 4..5","deps":[{"s":"t","at":[5],"v":14}],"ln":160,"g":4},
+    {"t":"set","s":"at","at":[],"from":5,"to":6,"ln":146,"note":"look at the node covering 6..7"},
+    {"t":"set","s":"at","at":[],"from":6,"to":13,"ln":146,"note":"look at the node covering 6..6"},
+    {"t":"set","s":"used","at":["13"],"from":false,"to":true,"ln":159,"g":5,"note":"6..6 is entirely inside the query -- take its sum whole"},
+    {"t":"set","s":"sum","at":[],"from":19,"to":21,"expr":"19 + 2, the whole of 6..6","deps":[{"s":"t","at":[13],"v":2}],"ln":160,"g":5},
+    {"t":"set","s":"at","at":[],"from":13,"to":14,"ln":146,"note":"look at the node covering 7..7"},
+    {"t":"set","s":"at","at":[],"from":14,"to":-1,"ln":172,"g":6,"note":"a[2..6] sums to 21, from 3 nodes out of 15"}
+  ]
+}

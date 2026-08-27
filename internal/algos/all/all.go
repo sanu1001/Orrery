@@ -11,6 +11,7 @@ import (
 	_ "github.com/sanu1001/orrery/internal/algos/backtracking"
 	_ "github.com/sanu1001/orrery/internal/algos/dp"
 	_ "github.com/sanu1001/orrery/internal/algos/graphs"
+	_ "github.com/sanu1001/orrery/internal/algos/heaps"
 	_ "github.com/sanu1001/orrery/internal/algos/lists"
 	_ "github.com/sanu1001/orrery/internal/algos/searching"
 	_ "github.com/sanu1001/orrery/internal/algos/sorting"

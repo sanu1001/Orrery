@@ -56,7 +56,7 @@ internal/trace/     THE FORMAT. stdlib-only — deps_test.go enforces that.
 internal/tracer/    The recording API algorithms write against.
 internal/replay/    The Go player. Exists to test the tracer and to prove the
                     JS player correct. Not a production path.
-internal/algos/     22 algorithms. One file each, //go:embed of itself.
+internal/algos/     24 algorithms. One file each, //go:embed of itself.
 internal/gen/       Generate + Catalog. Shared by the CLI, the server and the
                     build, so all three emit byte-identical output for the
                     same inputs — which is what makes goldens mean anything.
@@ -70,7 +70,7 @@ cmd/orreryd/        HTTP server: /api/trace, /api/share, the trace cache.
 web/src/lib/        validate (the trust boundary), value, explain
 web/src/player/     state, steps, prepass, store  — mirrors internal/trace
 web/src/render/     Linear, Grid, RecursionTree, TreeView, LinkedList, GraphView,
-                    Fallback, focus, layout/
+                    ArrayTree, Fallback, focus, layout/
 web/src/ui/         shell, transport, code pane, explain pane, panes
 ```
 
@@ -279,9 +279,9 @@ same statement whatever shape it makes.
 
 Stage A is built and green, plus C6 (the trace as a downloadable/droppable
 file), B1 + B2 + B3 (tree, linked-list and graph renderers), C1/C2 (breakpoints
-and watches) and C3 (measured complexity). 22 algorithms, 7 renderer families
-plus the call stack pane, CLI including a terminal player, Go↔JS conformance
-over 860 step hashes.
+and watches), B4 (the array/tree duality) and C3 (measured complexity). 24
+algorithms, 7 renderer families plus the call stack pane, CLI including a
+terminal player, Go↔JS conformance over 954 step hashes.
 
 Every `Spec` now declares `Complexity` and `Sweep`. `orrery complexity` runs
 each algorithm across its sweep range at build time; `lib/complexity.js` fits a
@@ -344,6 +344,17 @@ and it reads as a half-built feature rather than an unbuilt one.
 The tree renderer reuses `layout/tidyTree.js` unchanged; `render/layout/
 treeShape.js` holds the topology, including the cycle breaking that keeps a
 malformed tree from hanging the tab.
+
+B4 is `alsoAs: "tree"` on a Linear view, and it is the cheapest feature in the
+project relative to what it teaches. A heap and a segment tree are ARRAYS;
+neither gets a `nodes` structure, because node identity would put a topology in
+the trace that the algorithm never wrote. What they get is a second READING of
+the same cells, with children at 2i+1 and 2i+2 -- arithmetic on an index, no
+different in kind from a grid's `[r, c]`. `render/ArrayTree.jsx` reuses the tree
+family's DOM and stylesheet unchanged, so "amber means written this step" has
+one implementation. The toggle lives in the pane head rather than inside Linear,
+which is both the right place for chrome and what keeps the two renderers from
+importing each other.
 
 `../workshop/IMPLEMENTATION_NOTES.md` is what changed when the design met real
 code. `../workshop/FLAWS.md` is what is genuinely weak — §13 is the interview

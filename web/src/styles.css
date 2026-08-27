@@ -572,6 +572,34 @@ input, select {
 }
 .tbadges text[data-bad="1"] { fill: var(--pruned); }
 
+/* --------------------------------------------------- array as tree ------- */
+
+/* The tree reading of an array reuses .tree wholesale -- same node, same edge,
+   same amber-means-written. Only what the row view has and the tree view needs
+   is added here: the index, and the fact that a heap being sorted in place
+   leaves a sorted TAIL behind that is no longer part of the heap. */
+
+.arraytree .tnode .ix {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--text-dim);
+  text-anchor: middle;
+}
+.arraytree .tnode .sub {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--text-dim);
+  text-anchor: middle;
+}
+/* Finished: out of the heap and into the sorted tail, or a node a query
+   actually used. Settled green, because that is what green means everywhere
+   else -- done, final, not coming back. */
+.arraytree .tnode[data-done="1"] circle {
+  fill: color-mix(in srgb, var(--settled) 24%, var(--surface-raise));
+  stroke: var(--settled-edge);
+}
+.arraytree .tnode[data-done="1"] .ix,
+.arraytree .tnode[data-done="1"] .sub { fill: var(--text-dim); }
+.arraytree .edge[data-done="1"] { opacity: 0.3; stroke-dasharray: 2 3; }
+
+.pane-head .seg.dual button { font-size: var(--t-xs); padding: 1px var(--s2); }
+
 /* ------------------------------------------------------- linked list ----- */
 
 .llist { width: 100%; height: 100%; display: block; }

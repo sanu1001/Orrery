@@ -15,6 +15,7 @@ import RecursionTree from './RecursionTree.jsx';
 import TreeView from './TreeView.jsx';
 import LinkedList from './LinkedList.jsx';
 import GraphView from './GraphView.jsx';
+import ArrayTree from './ArrayTree.jsx';
 
 export const FAMILIES = {
   fallback: Fallback,
@@ -24,6 +25,11 @@ export const FAMILIES = {
   tree: TreeView,
   linkedList: LinkedList,
   graph: GraphView,
+  // Not a family a trace can name: `arrayTree` is the SECOND reading of an
+  // ordinary array view, reached through options.alsoAs and the pane's toggle.
+  // It lives here so ViewGrid can resolve it without importing it directly,
+  // which would make Linear and ArrayTree import each other.
+  arrayTree: ArrayTree,
 };
 
 /** @param {string} family */

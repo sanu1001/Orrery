@@ -37,7 +37,13 @@ export default function ViewGrid({ store, trace, version, focus, onFocus, onPin 
 }
 
 function ViewPane({ spec, store, version, focus, onFocus, onPin }) {
-  const Renderer = rendererFor(spec.family);
+  // THE ARRAY/TREE TOGGLE lives in the pane head rather than inside Linear,
+  // and that is not only to avoid the two renderers importing each other. It is
+  // chrome: the pane already says which family is drawing, and "draw the same
+  // state the other way" belongs next to that rather than inside the picture.
+  const dual = spec.options?.alsoAs === 'tree' && spec.family === 'linear';
+  const [asTree, setAsTree] = useState(dual && spec.options?.openAs === 'tree');
+  const Renderer = rendererFor(dual && asTree ? 'arrayTree' : spec.family);
   // A structure two rows tall does not need an equal share of the column. The
   // memo table in coins-memo is 1x12 -- 57px of content in a 256px pane -- and
   // the height it was given came out of the recursion tree, which is the pane
@@ -48,7 +54,15 @@ function ViewPane({ spec, store, version, focus, onFocus, onPin }) {
     <section className="pane" data-family={spec.family} data-compact={compact ? 1 : 0}>
       <div className="pane-head">
         <span className="title">{spec.title ?? spec.s}</span>
-        <span style={{ marginLeft: 'auto', textTransform: 'none' }}>{spec.family}</span>
+        {dual ? (
+          <div className="seg dual" role="group" aria-label="read this array as"
+               style={{ marginLeft: 'auto' }}>
+            <button aria-pressed={!asTree} onClick={() => setAsTree(false)}>array</button>
+            <button aria-pressed={asTree} onClick={() => setAsTree(true)}>tree</button>
+          </div>
+        ) : (
+          <span style={{ marginLeft: 'auto', textTransform: 'none' }}>{spec.family}</span>
+        )}
       </div>
       <div className="pane-body"
            onClick={(e) => { if (e.target === e.currentTarget) onPin?.(null); }}>

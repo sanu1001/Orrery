@@ -14,6 +14,8 @@ import { buildShape, finalEdges, currentEdges, layoutCovers, edgeKey }
 import { tidyTree } from '../src/render/layout/tidyTree.js';
 import { chainOrder, serpentine, reachable }
   from '../src/render/layout/serpentine.js';
+import { heapShape, heapParent, heapLevels }
+  from '../src/render/layout/heapShape.js';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -239,6 +241,45 @@ const edges = (pairs) => new Map(pairs.map(([f, k, t]) => [edgeKey(f, k), t]));
   check('a cycle terminates instead of spinning',
     reachable(cyc, ['next'], { head: 'n0' }).size === 2);
 }
+
+// --- the array/tree duality --------------------------------------------------
+// A heap has no node ids and no pointer fields. Its topology is arithmetic on
+// the index, and these assert that the arithmetic is the only thing involved.
+{
+  const { kids, roots } = heapShape(7);
+  check('the root is index 0', roots.length === 1 && roots[0] === 0);
+  check('children are 2i+1 and 2i+2',
+    kids[0].join(',') === '1,2' && kids[1].join(',') === '3,4' && kids[2].join(',') === '5,6');
+  check('leaves have none', kids[6].length === 0);
+  check('and the parent walk inverts it',
+    heapParent(6) === 2 && heapParent(1) === 0 && heapParent(0) === -1);
+
+  // A complete tree can leave the LAST internal node with one child, and it is
+  // always the left one -- so unlike a named tree there is nothing to
+  // disambiguate and no phantom slot is drawn.
+  const odd = heapShape(6);
+  check('a node with one child gets one child, not a phantom sibling',
+    odd.kids[2].join(',') === '5', `[${odd.kids[2]}]`);
+
+  const layout = tidyTree({ kids, roots, depth: [] }, 40, 40);
+  check('the layout puts every level on its own row',
+    layout.y[1] === layout.y[2] && layout.y[3] === layout.y[6] && layout.y[1] < layout.y[3]);
+  check('a parent is centred over its two children',
+    Math.abs(layout.x[0] - (layout.x[1] + layout.x[2]) / 2) < 1e-9);
+  check('and left really is left', layout.x[3] < layout.x[4] && layout.x[4] < layout.x[5]);
+
+  check('levels are index ranges', JSON.stringify(heapLevels(7)) === '[[0,0],[1,2],[3,6]]');
+  check('the last level is clipped to the array',
+    JSON.stringify(heapLevels(5)) === '[[0,0],[1,2],[3,4]]');
+
+  // The shape comes from the DECLARED length, which is what fixes every
+  // position before the first frame -- a sift is values trading places, never
+  // nodes moving.
+  const empty = heapShape(0);
+  check('an empty array has no root to draw', empty.roots.length === 0);
+  check('a single cell is a lone root', heapShape(1).kids[0].length === 0);
+}
+
 
 console.log(failures === 0 ? '\ntree: all checks passed' : `\ntree: ${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);
