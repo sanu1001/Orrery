@@ -1,0 +1,124 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "kruskal",
+    "title": "Kruskal's Minimum Spanning Tree",
+    "lang": "go",
+    "input": {
+      "n": 8
+    },
+    "source": {
+      "path": "internal/algos/graphs/kruskal.go",
+      "text": "package graphs\n\nimport (\n\t_ \"embed\"\n\t\"sort\"\n\t\"strconv\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed kruskal.go\nvar kruskalSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"kruskal\",\n\t\tTitle:  \"Kruskal's Minimum Spanning Tree\",\n\t\tFamily: \"Graphs\",\n\t\tBlurb:  \"Take the cheapest edge that joins two pieces, and reject every edge that would close a loop.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"n\", Kind: \"int\", Min: 4, Max: 12, Default: 8,\n\t\t\t\tHelp: \"nodes; the edges and weights are generated deterministically\"},\n\t\t},\n\t\tDefaults: algos.Args{\"n\": 8},\n\t\tSource:   trace.Source{Path: \"internal/algos/graphs/kruskal.go\", Text: kruskalSrc, FirstLine: 1},\n\t\tTags:     []string{\"graph\", \"greedy\", \"union-find\"},\n\t\t// One step per edge considered, and the swept family has E = 1.5V. The\n\t\t// sort that makes Kruskal O(m log m) happens before the first event, so it\n\t\t// is not traced and must not be claimed here.\n\t\tComplexity: \"O(n)\",\n\t\tSweep:      []string{\"n\"},\n\t\tRun:        runKruskal,\n\t})\n}\n\n// KRUSKAL IS THE ALGORITHM WITH NO NODE CURSOR, and that turns out to matter to\n// the renderer rather than to the algorithm.\n//\n// Dijkstra, BFS and DFS all stand somewhere and look at the neighbourhood, so\n// focus-and-context has an obvious centre. Kruskal stands nowhere: it walks a\n// sorted list of EDGES and asks one question about each. So this trace declares\n// no `cursorRef`, the renderer finds no cursor, and it drops the dimming and\n// shows every weight -- which is exactly right, because the weights ARE the\n// list being walked.\n//\n// That behaviour is not a special case for Kruskal. It is what \"no cursor\"\n// means, and any algorithm that declares no cursor gets it.\n//\n// The verdict on each edge is an edge ATTRIBUTE, `st`, and the renderer paints\n// whatever string it finds there. Chosen edges go green, rejected ones go rose\n// and dashed. Nothing in the renderer knows the words \"spanning\" or \"cycle\".\nfunc runKruskal(tr *tracer.Tracer, args algos.Args) error {\n\tn := args.Int(\"n\")\n\tedges := build(n)\n\n\t// Sorted by weight, ties broken by declaration order, because a sort that is\n\t// not total is a sort that gives different answers on different machines --\n\t// and a share link has to draw the same tree every time.\n\tidx := make([]int, len(edges))\n\tfor i := range idx {\n\t\tidx[i] = i\n\t}\n\tsort.SliceStable(idx, func(a, b int) bool {\n\t\treturn weightOf(edges[idx[a]]) \u003c weightOf(edges[idx[b]])\n\t})\n\n\tg := tr.Graph(\"g\", trace.Schema{\n\t\tNodes:      ids(n),\n\t\tEdges:      edges,\n\t\tWeighted:   true,\n\t\tLayoutHint: \"force\",\n\t})\n\tcomp := tr.Map(\"comp\", nil)\n\tinTree := tr.Map(\"in\", false)\n\tsorted := tr.Array(\"sorted\", len(edges), nil)\n\tat := tr.Scalar(\"at\", -1).Aux()\n\n\troot := map[string]string{}\n\ttr.Group(func() {\n\t\tfor k, e := range idx {\n\t\t\tsorted.Set(k, edges[e].U+\"-\"+edges[e].V+\":\"+strconv.Itoa(weightOf(edges[e])))\n\t\t}\n\t\tfor _, id := range ids(n) {\n\t\t\t// Every node starts as its own component. Writing it rather than\n\t\t\t// leaving it implicit is what lets the sub-label show a merge.\n\t\t\tcomp.Set(id, id)\n\t\t\troot[id] = id\n\t\t}\n\t}).Note(\"sort the edges and give every node its own component\")\n\n\t// Declared after the construction group, so StartHere opens the player on the\n\t// first real decision rather than on the sort.\n\t//\n\t// NO cursorRef: see the comment at the top. The renderer takes its absence as\n\t// \"this algorithm stands nowhere\", drops the dimming and shows every weight.\n\ttr.View(\"graph\", \"g\", 0,\n\t\ttracer.Title(\"graph\"),\n\t\ttracer.Opt(\"distOf\", \"comp\"),\n\t\ttracer.Opt(\"settledOf\", \"in\"),\n\t\ttracer.Opt(\"edgeStateOf\", \"st\"),\n\t\ttracer.Opt(\"edgeOrder\", \"weight\"),\n\t\ttracer.StartHere(tr))\n\ttr.View(\"linear\", \"sorted\", 1,\n\t\ttracer.Title(\"edges, cheapest first\"),\n\t\ttracer.Opt(\"cursors\", []any{\"at\"}))\n\n\tfind := func(x string) string {\n\t\tfor root[x] != x {\n\t\t\tx = root[x]\n\t\t}\n\t\treturn x\n\t}\n\n\tchosen := 0\n\tfor k, e := range idx {\n\t\tu, v := edges[e].U, edges[e].V\n\t\tw := weightOf(edges[e])\n\t\tru, rv := find(u), find(v)\n\n\t\tif ru == rv {\n\t\t\ttr.Group(func() {\n\t\t\t\tat.Set(k)\n\t\t\t\tg.SetEdge(u, v, \"st\", \"pruned\").\n\t\t\t\t\tBecause(\"%s and %s are already in component %s\", u, v, ru).\n\t\t\t\t\tFrom(comp.Cell(u), comp.Cell(v))\n\t\t\t}).Note(\"%s-%s would close a loop -- reject it\", u, v)\n\t\t\tcontinue\n\t\t}\n\n\t\t// Read before the writes, for the same reason dfs.go does: a Cell\n\t\t// snapshots its value, and taking it afterwards would cite the answer as\n\t\t// its own evidence.\n\t\tcu, cv := comp.Cell(u), comp.Cell(v)\n\t\t// Everything whose ROOT is ru, not everything whose parent is ru. Union-find\n\t\t// without path compression makes a chain, and the first version walked one\n\t\t// link -- so a three-deep component moved its head and orphaned the rest,\n\t\t// leaving nodes labelled with a root that no longer existed.\n\t\tmoved := []string{}\n\t\tfor _, id := range ids(n) {\n\t\t\tif find(id) == ru {\n\t\t\t\tmoved = append(moved, id)\n\t\t\t}\n\t\t}\n\t\troot[ru] = rv\n\n\t\ttr.Group(func() {\n\t\t\tat.Set(k)\n\t\t\tg.SetEdge(u, v, \"st\", \"settled\").\n\t\t\t\tBecause(\"%s is in %s and %s is in %s -- different components\", u, ru, v, rv).\n\t\t\t\tFrom(cu, cv)\n\t\t\t// A node joins the tree on its FIRST chosen edge and stays. Writing\n\t\t\t// true over true would be check V11, and it would also claim a change\n\t\t\t// the picture does not make.\n\t\t\tfor _, x := range []string{u, v} {\n\t\t\t\tif inTree.At(x) != true {\n\t\t\t\t\tinTree.Set(x, true)\n\t\t\t\t}\n\t\t\t}\n\t\t\tfor _, id := range moved {\n\t\t\t\tif s, ok := comp.At(id).(string); !ok || s != rv {\n\t\t\t\t\tcomp.Set(id, rv)\n\t\t\t\t}\n\t\t\t}\n\t\t}).Note(\"take %s-%s at cost %d -- the two components become one\", u, v, w)\n\t\tchosen++\n\n\t\t// n-1 edges span n nodes, and every edge after that must close a loop.\n\t\t// Stopping here rather than scanning the tail is the difference between\n\t\t// a trace that ends on the answer and one that ends on eight rejections.\n\t\tif chosen == n-1 {\n\t\t\tbreak\n\t\t}\n\t}\n\n\tat.Set(-1).Note(\"%d edges chosen -- that spans all %d nodes\", chosen, n)\n\treturn tr.Err()\n}\n\nfunc weightOf(e trace.Edge) int {\n\tn, _ := trace.Num(e.W)\n\treturn int(n)\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "graph",
+        "s": "g",
+        "pane": 0,
+        "title": "graph",
+        "options": {
+          "distOf": "comp",
+          "edgeOrder": "weight",
+          "edgeStateOf": "st",
+          "settledOf": "in"
+        },
+        "startEvent": 31
+      },
+      {
+        "family": "linear",
+        "s": "sorted",
+        "pane": 1,
+        "title": "edges, cheapest first",
+        "options": {
+          "cursors": [
+            "at"
+          ]
+        }
+      }
+    ],
+    "counts": {
+      "events": 74,
+      "steps": 16,
+      "structs": 5
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"g","kind":"graph","fill":null,"schema":{"nodes":["a","b","c","d","e","f","g","h"],"edges":[{"u":"a","v":"b","w":8},{"u":"b","v":"c","w":6},{"u":"b","v":"d","w":5},{"u":"a","v":"e","w":3},{"u":"d","v":"f","w":8},{"u":"a","v":"g","w":9},{"u":"e","v":"h","w":2},{"u":"h","v":"d","w":6},{"u":"d","v":"g","w":5}],"weighted":true,"layoutHint":"force"},"ln":69},
+    {"t":"set","s":"g","at":["$edges","a|b","w"],"from":null,"to":8,"g":1,"note":"graph"},
+    {"t":"set","s":"g","at":["$edges","b|c","w"],"from":null,"to":6,"g":1},
+    {"t":"set","s":"g","at":["$edges","b|d","w"],"from":null,"to":5,"g":1},
+    {"t":"set","s":"g","at":["$edges","a|e","w"],"from":null,"to":3,"g":1},
+    {"t":"set","s":"g","at":["$edges","d|f","w"],"from":null,"to":8,"g":1},
+    {"t":"set","s":"g","at":["$edges","a|g","w"],"from":null,"to":9,"g":1},
+    {"t":"set","s":"g","at":["$edges","e|h","w"],"from":null,"to":2,"g":1},
+    {"t":"set","s":"g","at":["$edges","d|h","w"],"from":null,"to":6,"g":1},
+    {"t":"set","s":"g","at":["$edges","d|g","w"],"from":null,"to":5,"g":1},
+    {"t":"init","s":"comp","kind":"map","fill":null,"ln":75},
+    {"t":"init","s":"in","kind":"map","fill":false,"ln":76},
+    {"t":"init","s":"sorted","kind":"array","dims":[9],"fill":null,"ln":77},
+    {"t":"init","s":"at","kind":"scalar","fill":-1,"aux":true,"ln":78},
+    {"t":"set","s":"sorted","at":[0],"from":null,"to":"e-h:2","ln":83,"g":2,"note":"sort the edges and give every node its own component"},
+    {"t":"set","s":"sorted","at":[1],"from":null,"to":"a-e:3","ln":83,"g":2},
+    {"t":"set","s":"sorted","at":[2],"from":null,"to":"b-d:5","ln":83,"g":2},
+    {"t":"set","s":"sorted","at":[3],"from":null,"to":"d-g:5","ln":83,"g":2},
+    {"t":"set","s":"sorted","at":[4],"from":null,"to":"b-c:6","ln":83,"g":2},
+    {"t":"set","s":"sorted","at":[5],"from":null,"to":"h-d:6","ln":83,"g":2},
+    {"t":"set","s":"sorted","at":[6],"from":null,"to":"a-b:8","ln":83,"g":2},
+    {"t":"set","s":"sorted","at":[7],"from":null,"to":"d-f:8","ln":83,"g":2},
+    {"t":"set","s":"sorted","at":[8],"from":null,"to":"a-g:9","ln":83,"g":2},
+    {"t":"set","s":"comp","at":["a"],"from":null,"to":"a","ln":88,"g":2},
+    {"t":"set","s":"comp","at":["b"],"from":null,"to":"b","ln":88,"g":2},
+    {"t":"set","s":"comp","at":["c"],"from":null,"to":"c","ln":88,"g":2},
+    {"t":"set","s":"comp","at":["d"],"from":null,"to":"d","ln":88,"g":2},
+    {"t":"set","s":"comp","at":["e"],"from":null,"to":"e","ln":88,"g":2},
+    {"t":"set","s":"comp","at":["f"],"from":null,"to":"f","ln":88,"g":2},
+    {"t":"set","s":"comp","at":["g"],"from":null,"to":"g","ln":88,"g":2},
+    {"t":"set","s":"comp","at":["h"],"from":null,"to":"h","ln":88,"g":2},
+    {"t":"set","s":"at","at":[],"from":-1,"to":0,"ln":149,"g":3,"note":"take e-h at cost 2 -- the two components become one"},
+    {"t":"set","s":"g","at":["$edges","e|h","st"],"from":null,"to":"settled","expr":"e is in e and h is in h -- different components","deps":[{"s":"comp","at":["e"],"v":"e"},{"s":"comp","at":["h"],"v":"h"}],"ln":150,"g":3},
+    {"t":"set","s":"in","at":["e"],"from":false,"to":true,"ln":158,"g":3},
+    {"t":"set","s":"in","at":["h"],"from":false,"to":true,"ln":158,"g":3},
+    {"t":"set","s":"comp","at":["e"],"from":"e","to":"h","ln":163,"g":3},
+    {"t":"set","s":"at","at":[],"from":0,"to":1,"ln":149,"g":4,"note":"take a-e at cost 3 -- the two components become one"},
+    {"t":"set","s":"g","at":["$edges","a|e","st"],"from":null,"to":"settled","expr":"a is in a and e is in h -- different components","deps":[{"s":"comp","at":["a"],"v":"a"},{"s":"comp","at":["e"],"v":"h"}],"ln":150,"g":4},
+    {"t":"set","s":"in","at":["a"],"from":false,"to":true,"ln":158,"g":4},
+    {"t":"set","s":"comp","at":["a"],"from":"a","to":"h","ln":163,"g":4},
+    {"t":"set","s":"at","at":[],"from":1,"to":2,"ln":149,"g":5,"note":"take b-d at cost 5 -- the two components become one"},
+    {"t":"set","s":"g","at":["$edges","b|d","st"],"from":null,"to":"settled","expr":"b is in b and d is in d -- different components","deps":[{"s":"comp","at":["b"],"v":"b"},{"s":"comp","at":["d"],"v":"d"}],"ln":150,"g":5},
+    {"t":"set","s":"in","at":["b"],"from":false,"to":true,"ln":158,"g":5},
+    {"t":"set","s":"in","at":["d"],"from":false,"to":true,"ln":158,"g":5},
+    {"t":"set","s":"comp","at":["b"],"from":"b","to":"d","ln":163,"g":5},
+    {"t":"set","s":"at","at":[],"from":2,"to":3,"ln":149,"g":6,"note":"take d-g at cost 5 -- the two components become one"},
+    {"t":"set","s":"g","at":["$edges","d|g","st"],"from":null,"to":"settled","expr":"d is in d and g is in g -- different components","deps":[{"s":"comp","at":["d"],"v":"d"},{"s":"comp","at":["g"],"v":"g"}],"ln":150,"g":6},
+    {"t":"set","s":"in","at":["g"],"from":false,"to":true,"ln":158,"g":6},
+    {"t":"set","s":"comp","at":["b"],"from":"d","to":"g","ln":163,"g":6},
+    {"t":"set","s":"comp","at":["d"],"from":"d","to":"g","ln":163,"g":6},
+    {"t":"set","s":"at","at":[],"from":3,"to":4,"ln":149,"g":7,"note":"take b-c at cost 6 -- the two components become one"},
+    {"t":"set","s":"g","at":["$edges","b|c","st"],"from":null,"to":"settled","expr":"b is in g and c is in c -- different components","deps":[{"s":"comp","at":["b"],"v":"g"},{"s":"comp","at":["c"],"v":"c"}],"ln":150,"g":7},
+    {"t":"set","s":"in","at":["c"],"from":false,"to":true,"ln":158,"g":7},
+    {"t":"set","s":"comp","at":["b"],"from":"g","to":"c","ln":163,"g":7},
+    {"t":"set","s":"comp","at":["d"],"from":"g","to":"c","ln":163,"g":7},
+    {"t":"set","s":"comp","at":["g"],"from":"g","to":"c","ln":163,"g":7},
+    {"t":"set","s":"at","at":[],"from":4,"to":5,"ln":149,"g":8,"note":"take h-d at cost 6 -- the two components become one"},
+    {"t":"set","s":"g","at":["$edges","d|h","st"],"from":null,"to":"settled","expr":"h is in h and d is in c -- different components","deps":[{"s":"comp","at":["h"],"v":"h"},{"s":"comp","at":["d"],"v":"c"}],"ln":150,"g":8},
+    {"t":"set","s":"comp","at":["a"],"from":"h","to":"c","ln":163,"g":8},
+    {"t":"set","s":"comp","at":["e"],"from":"h","to":"c","ln":163,"g":8},
+    {"t":"set","s":"comp","at":["h"],"from":"h","to":"c","ln":163,"g":8},
+    {"t":"set","s":"at","at":[],"from":5,"to":6,"ln":124,"g":9,"note":"a-b would close a loop -- reject it"},
+    {"t":"set","s":"g","at":["$edges","a|b","st"],"from":null,"to":"pruned","expr":"a and b are already in component c","deps":[{"s":"comp","at":["a"],"v":"c"},{"s":"comp","at":["b"],"v":"c"}],"ln":125,"g":9},
+    {"t":"set","s":"at","at":[],"from":6,"to":7,"ln":149,"g":10,"note":"take d-f at cost 8 -- the two components become one"},
+    {"t":"set","s":"g","at":["$edges","d|f","st"],"from":null,"to":"settled","expr":"d is in c and f is in f -- different components","deps":[{"s":"comp","at":["d"],"v":"c"},{"s":"comp","at":["f"],"v":"f"}],"ln":150,"g":10},
+    {"t":"set","s":"in","at":["f"],"from":false,"to":true,"ln":158,"g":10},
+    {"t":"set","s":"comp","at":["a"],"from":"c","to":"f","ln":163,"g":10},
+    {"t":"set","s":"comp","at":["b"],"from":"c","to":"f","ln":163,"g":10},
+    {"t":"set","s":"comp","at":["c"],"from":"c","to":"f","ln":163,"g":10},
+    {"t":"set","s":"comp","at":["d"],"from":"c","to":"f","ln":163,"g":10},
+    {"t":"set","s":"comp","at":["e"],"from":"c","to":"f","ln":163,"g":10},
+    {"t":"set","s":"comp","at":["g"],"from":"c","to":"f","ln":163,"g":10},
+    {"t":"set","s":"comp","at":["h"],"from":"c","to":"f","ln":163,"g":10},
+    {"t":"set","s":"at","at":[],"from":7,"to":-1,"ln":177,"note":"7 edges chosen -- that spans all 8 nodes"}
+  ]
+}

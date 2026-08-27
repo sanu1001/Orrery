@@ -622,6 +622,158 @@ input, select {
   text-anchor: middle; letter-spacing: 0.04em;
 }
 
+/* ------------------------------------------------------------ graph ----- */
+
+/* FOCUS AND CONTEXT, in CSS. Exactly one neighbourhood is at full strength and
+   everything else is shape without data. Every rule below is one half of that:
+   the `[data-dim]` and `[data-on]` pairs. RENDERERS/GRAPH.md 2. */
+
+.graph { width: 100%; height: 100%; display: block; }
+
+.graph .gnode { cursor: pointer; }
+.graph .gnode.enter { animation: nodeIn var(--d-step) var(--ease); }
+.graph .gnode:focus-visible { outline: none; }
+.graph .gnode:focus-visible .disc { stroke: var(--read); stroke-width: 2.5; }
+
+.graph .gnode .disc {
+  fill: var(--surface-raise); stroke: var(--border-strong); stroke-width: var(--stroke);
+  transition: fill var(--d-step) var(--ease), stroke var(--d-step) var(--ease);
+}
+.graph .gnode .lbl {
+  font-family: var(--font-mono); font-size: 12px; fill: var(--text-dim);
+  text-anchor: middle; dominant-baseline: middle;
+}
+/* The distance is the answer the algorithm is computing, so it is monospace and
+   it sits under the node rather than inside it -- a number that changes every
+   few steps must not fight the id, which never changes. */
+.graph .gnode .dist {
+  font-family: var(--font-mono); font-size: var(--t-sm); fill: var(--text-dim);
+  text-anchor: middle;
+}
+.graph .gnode .refchip {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--cursor);
+  text-anchor: middle; letter-spacing: 0.04em;
+}
+
+/* Set membership, in fill. Unseen is the bare surface: "nothing has reached
+   this yet" should look like absence, not like a third colour. */
+.graph .gnode[data-member="queued"] .disc {
+  fill: color-mix(in srgb, var(--cursor) 20%, var(--surface-raise));
+  stroke: var(--cursor-edge);
+}
+.graph .gnode[data-member="settled"] .disc {
+  fill: color-mix(in srgb, var(--settled) 30%, var(--surface-raise));
+  stroke: var(--settled-edge);
+}
+.graph .gnode[data-member="settled"] .lbl { fill: var(--text); }
+
+/* The redundant channel, and the one place duplication is the point: filled
+   means settled, hollow means queued, absent means unseen. Hue alone may never
+   be the only carrier of a fact (UI_DESIGN.md 2.4), and the hueless toggle is
+   where that claim gets audited. */
+.graph .gnode .dot { fill: none; stroke: var(--text-dim); stroke-width: 1.5; }
+.graph .gnode .dot[data-fill="1"] { fill: var(--text-dim); }
+
+/* `distAs: "layer"` -- BFS reads as the layers of the graph rather than as a
+   frontier moving.
+
+   fill-opacity rather than color-mix, and that was a measurement rather than a
+   preference: color-mix(in srgb, var(--settled) calc(14% + var(--layer) * 44%),
+   ...) parses, passes CSS.supports, and computes to the SAME colour for every
+   value of --layer once the variable is inherited from the parent <g> rather
+   than set on the circle itself. Every one of twenty-five cells came out
+   identical. A plain number in fill-opacity varies, and the token stays in the
+   stylesheet where the palette belongs. */
+.graph .gnode[data-layer="1"] .disc {
+  fill: var(--settled);
+  fill-opacity: calc(0.1 + var(--layer, 0) * 0.5);
+  stroke: var(--settled-edge);
+}
+
+.graph .gnode[data-cursor="1"] .disc { stroke: var(--cursor); stroke-width: 2.5; }
+.graph .gnode[data-cursor="1"] .lbl { fill: var(--text); }
+.graph .gnode[data-probe="1"] .disc { stroke: var(--cursor); stroke-dasharray: 3 2; }
+.graph .gnode[data-w="1"] .disc {
+  stroke: var(--write); stroke-width: 2.5;
+  fill: color-mix(in srgb, var(--write) 18%, var(--surface-raise));
+}
+.graph .gnode[data-w="1"] .dist { fill: var(--write); }
+.graph .gnode[data-w="1"] .lbl { fill: var(--text); }
+.graph .gnode[data-r="1"] .disc { stroke: var(--read); stroke-dasharray: 3 2; }
+.graph .gnode[data-linked="1"] .disc { stroke: var(--read); stroke-width: 2.5; }
+
+/* Context is expressed in COLOUR, not in opacity, and that is the whole lesson
+   of this block.
+
+   RENDERERS/GRAPH.md 2 says 35% opacity. Opacity dims the labels along with the
+   discs, and it caps how much contrast a label can reach no matter what colour
+   it is: measured, pure --text at 45% is 4.14:1 in the dark theme and 2.89:1 in
+   the light one, and it takes 60% -- barely a dim at all -- before the light
+   theme clears WCAG AA's 4.5:1. This project does not ship words below AA; that
+   rule already ruled out --text-mute twice.
+
+   So the discs carry the opacity and the labels change token instead. Full
+   strength is --text at 16.2:1, context is --text-dim at 6.7:1, and a reader
+   sees a clear rank without anything becoming unreadable. Same channel the code
+   pane uses to separate the executing line from the rest. */
+.graph .gnode[data-dim="1"] .disc { opacity: 0.4; }
+.graph .gnode[data-dim="1"] .dot { opacity: 0.5; }
+.graph .gnode[data-dim="1"] .refchip { opacity: 0.65; }
+.graph .gnode[data-dim="1"] .lbl,
+.graph .gnode[data-dim="1"] .dist { fill: var(--text-dim); }
+/* An unseen node's distance is the infinity glyph, which is noise rather than
+   data once the node is also out of focus. */
+.graph .gnode[data-dim="1"][data-member="unseen"] .dist { display: none; }
+/* Past twenty nodes, only settled and active nodes keep a distance at all.
+   RENDERERS/GRAPH.md 7. */
+.graph[data-big="1"] .gnode[data-dim="1"] .dist { display: none; }
+
+.graph .gedge .wire {
+  fill: none; stroke: var(--border-strong); stroke-width: 1; opacity: 0.35;
+  transition: stroke var(--d-step) var(--ease), opacity var(--d-step) var(--ease);
+}
+.graph .gedge .wt {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--text-dim);
+  text-anchor: middle;
+}
+/* The tree is never dimmed. It is the answer accumulating, and an answer that
+   fades out every time the cursor moves elsewhere cannot be watched. */
+.graph .gedge[data-tree="1"] .wire { stroke: var(--settled); stroke-width: 2; opacity: 0.6; }
+.graph .gedge[data-state="settled"] .wire { stroke: var(--settled); stroke-width: 2; opacity: 0.85; }
+.graph .gedge[data-state="pruned"] .wire {
+  stroke: var(--pruned); stroke-width: 1.5; opacity: 0.75; stroke-dasharray: 3 2;
+}
+.graph .gedge[data-path="1"] .wire { stroke: var(--cursor); stroke-width: 2; opacity: 0.9; }
+.graph .gedge[data-on="1"] .wire { stroke: var(--text-dim); stroke-width: 1.5; opacity: 1; }
+/* Written this step, on an edge. Amber means the same thing here as it does in
+   every other view, which is why an edge verdict needed no new channel. */
+.graph .gedge[data-w="1"] .wire { stroke: var(--write); stroke-width: 2.5; opacity: 1; }
+.graph .gedge[data-w="1"] .wt { fill: var(--write); }
+.graph .gedge[data-relax="ok"] .wire {
+  stroke: var(--write); stroke-width: 2.5; opacity: 1;
+  stroke-dasharray: 6 3; animation: dash 600ms linear infinite;
+}
+.graph .gedge[data-relax="fail"] .wire {
+  stroke: var(--pruned); stroke-width: 2; opacity: 1; stroke-dasharray: 4 4;
+}
+.graph .gedge[data-relax="ok"] .wt { fill: var(--write); }
+.graph .gedge[data-relax="fail"] .wt { fill: var(--pruned); text-decoration: line-through; }
+
+.graph #gv-arrow path { fill: var(--border-strong); }
+
+/* The arithmetic, on the edge. This is the detail that makes the renderer worth
+   building: the explanation of the step sits ON the two numbers it is about,
+   instead of in a pane on the other side of the screen. */
+.graph .relax-pill rect {
+  fill: var(--surface); stroke: var(--write); stroke-width: 1; opacity: 0.96;
+}
+.graph .relax-pill text {
+  font-family: var(--font-mono); font-size: 10px; fill: var(--write);
+  text-anchor: middle;
+}
+.graph .relax-pill[data-ok="0"] rect { stroke: var(--pruned); }
+.graph .relax-pill[data-ok="0"] text { fill: var(--pruned); }
+
 /* ------------------------------------------------------------ code ------- */
 
 /* overflow-x is hidden, not auto: lines WRAP. A horizontal scrollbar hid the

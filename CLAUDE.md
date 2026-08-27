@@ -56,7 +56,7 @@ internal/trace/     THE FORMAT. stdlib-only — deps_test.go enforces that.
 internal/tracer/    The recording API algorithms write against.
 internal/replay/    The Go player. Exists to test the tracer and to prove the
                     JS player correct. Not a production path.
-internal/algos/     17 algorithms. One file each, //go:embed of itself.
+internal/algos/     22 algorithms. One file each, //go:embed of itself.
 internal/gen/       Generate + Catalog. Shared by the CLI, the server and the
                     build, so all three emit byte-identical output for the
                     same inputs — which is what makes goldens mean anything.
@@ -69,7 +69,8 @@ cmd/orreryd/        HTTP server: /api/trace, /api/share, the trace cache.
 
 web/src/lib/        validate (the trust boundary), value, explain
 web/src/player/     state, steps, prepass, store  — mirrors internal/trace
-web/src/render/     Linear, Grid, RecursionTree, TreeView, Fallback, focus, layout/
+web/src/render/     Linear, Grid, RecursionTree, TreeView, LinkedList, GraphView,
+                    Fallback, focus, layout/
 web/src/ui/         shell, transport, code pane, explain pane, panes
 ```
 
@@ -277,16 +278,18 @@ same statement whatever shape it makes.
 ## Current state
 
 Stage A is built and green, plus C6 (the trace as a downloadable/droppable
-file), B1 + B2 (tree and linked-list renderers), C1/C2 (breakpoints and
-watches) and C3 (measured complexity). 17 algorithms, 6 renderer families plus
-the call stack pane, CLI including a terminal player, Go↔JS conformance over
-708 step hashes.
+file), B1 + B2 + B3 (tree, linked-list and graph renderers), C1/C2 (breakpoints
+and watches) and C3 (measured complexity). 22 algorithms, 7 renderer families
+plus the call stack pane, CLI including a terminal player, Go↔JS conformance
+over 860 step hashes.
 
 Every `Spec` now declares `Complexity` and `Sweep`. `orrery complexity` runs
 each algorithm across its sweep range at build time; `lib/complexity.js` fits a
-model and shows it beside the claim. 15 of 17 agree, and the two that do not
+model and shows it beside the claim. 19 of 22 agree, and the three that do not
 are the interesting ones -- fib-naive measures 1.66^n against a declared 2^n,
-and N-Queens refuses to fit at all.
+N-Queens refuses to fit at all, and Dijkstra measures below its declared O(n^2)
+because its quadratic cost is the linear SCAN for the minimum, which is
+comparisons, and comparisons only become steps at detail level 1.
 
 E1 is built: `cmd/orreryd` serves `/api/algorithms`, `/api/trace`,
 `/api/trace/{key}`, `/api/share`, `/api/share/{id}`, `/healthz` and `/readyz`,
@@ -306,11 +309,37 @@ over EVENTS, never a replay, because every `set` carries its full `to` rather
 than a delta. That is why searching backward costs exactly what searching
 forward costs, and it is the reversibility invariant paying for itself twice.
 
-Not built: the graph renderer (spec in `../workshop/RENDERERS/GRAPH.md`), Stage B
-(spec in `../workshop/STAGE_B.md`), and E2/E3 — rate limiting, metrics and the
-compile queue, which is why `compile_jobs` is absent from the schema and the
-Stage B fields are absent from Config. Config nothing reads is config nobody
-maintains, and it reads as a half-built feature rather than an unbuilt one.
+B3 is built. `render/layout/graphShape.js` is the topology and
+`graphLayout.js` is the four placement strategies, chosen by PROVENANCE from
+`schema.layoutHint` — grid for a maze, layered for a DAG, circle for anything
+small, seeded Fruchterman–Reingold frozen at 300 iterations for the rest. Five
+graph algorithms feed it, and between them they exercise every strategy and
+every option: dijkstra, bfs-maze, dfs, kruskal, toposort.
+
+Three things about it are worth knowing before changing it.
+
+**A level-0 write may never read back a value only a level-1 write produced.**
+The examining cursor started as a scalar parked inside the pop group at level
+0; its `from` was the last node examined, which level-0 replay had never seen,
+so rewinding restored a value out of thin air. `TestSeekEquivalence` caught it
+on the first run. The aux precondition in ADR 0016 is necessary and not
+sufficient — the structure must be written at ONE level only.
+
+**Context is dimmed by colour, not by opacity.** `opacity` dims the labels
+along with the discs and caps how much contrast they can reach: measured, pure
+`--text` at 45% is 4.14:1 dark and 2.89:1 light, and the light theme needs 60%
+before it clears AA. So the discs carry the opacity and the labels switch token
+(`--text` → `--text-dim`). Same channel the code pane uses.
+
+**Queue membership is declared, never inferred.** The first version fell back
+to "has a finite distance and is not settled", which is true for Dijkstra and
+quietly wrong for Kruskal — it writes a component label to every node before
+its first decision, so the whole graph came out violet.
+
+Not built: Stage B (spec in `../workshop/STAGE_B.md`) and E3 — the compile
+queue, which is why `compile_jobs` is absent from the schema and the Stage B
+fields are absent from Config. Config nothing reads is config nobody maintains,
+and it reads as a half-built feature rather than an unbuilt one.
 
 The tree renderer reuses `layout/tidyTree.js` unchanged; `render/layout/
 treeShape.js` holds the topology, including the cycle breaking that keeps a
