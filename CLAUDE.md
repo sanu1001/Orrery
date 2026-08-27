@@ -291,18 +291,20 @@ same statement whatever shape it makes.
 
 Stage A is built and green, plus C6 (the trace as a downloadable/droppable
 file), B1 + B2 + B3 (tree, linked-list and graph renderers), C1/C2 (breakpoints
-and watches), B4 (the array/tree duality), B6 (fifteen more algorithms) and C3
-(measured complexity). 32 algorithms, 7 renderer families plus the call stack
-pane, CLI including a terminal player, Go↔JS conformance over 1,172 step
-hashes.
+and watches), B4 (the array/tree duality), B6 (fifteen more algorithms), C3
+(measured complexity) and C10 (the command palette). 32 algorithms, 7 renderer
+families plus the call stack pane, CLI including a terminal player, Go↔JS
+conformance over 1,172 step hashes.
 
 Every `Spec` now declares `Complexity` and `Sweep`. `orrery complexity` runs
 each algorithm across its sweep range at build time; `lib/complexity.js` fits a
-model and shows it beside the claim. 19 of 22 agree, and the three that do not
-are the interesting ones -- fib-naive measures 1.66^n against a declared 2^n,
-N-Queens refuses to fit at all, and Dijkstra measures below its declared O(n^2)
-because its quadratic cost is the linear SCAN for the minimum, which is
-comparisons, and comparisons only become steps at detail level 1.
+model and shows it beside the claim. 26 of 31 agree (segtree declares no Sweep;
+see the comment there). Of the five that do not, fib-naive measures 1.66^n
+against a declared 2^n and N-Queens refuses to fit at all -- those two are the
+interesting ones. The other three are Dijkstra, Bellman-Ford and Prim, and they
+disagree for one shared reason worth knowing: their cost is in COMPARISONS,
+which only become steps at detail level 1, while the measured curve counts
+level-0 steps, which are writes.
 
 E1 is built: `cmd/orreryd` serves `/api/algorithms`, `/api/trace`,
 `/api/trace/{key}`, `/api/share`, `/api/share/{id}`, `/healthz` and `/readyz`,

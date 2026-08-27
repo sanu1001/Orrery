@@ -11,6 +11,7 @@ const KEYS = [
   ['w', 'watch the address under the cursor'],
   ['b', 'breakpoint on it'],
   ['c  /  Shift + c', 'run to next / previous breakpoint'],
+  ['/  or  ctrl + K', 'command palette'],
   ['Esc', 'clear the pinned highlight'],
   ['?', 'this list'],
 ];

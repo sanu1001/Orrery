@@ -26,6 +26,8 @@ import ComplexityPane from './ui/ComplexityPane.jsx';
 import Banner from './ui/Banner.jsx';
 import EmptyState from './ui/EmptyState.jsx';
 import Shortcuts from './ui/Shortcuts.jsx';
+import Palette from './ui/Palette.jsx';
+import { buildCommands } from './lib/commands.js';
 import { useKeys } from './ui/useKeys.js';
 
 const BASE = import.meta.env.BASE_URL ?? '/';
@@ -59,6 +61,7 @@ export default function App() {
   // no state is carried by colour alone. styles.css says what it checks.
   const [hueless, setHueless] = useState(false);
   const [showKeys, setShowKeys] = useState(false);
+  const [palette, setPalette] = useState(false);
   const [offline, setOffline] = useState(false);
   // Build-time measurements, fetched once. Absent is fine: the pane simply
   // does not render, the same way a missing trace degrades rather than throws.
@@ -323,7 +326,31 @@ export default function App() {
     onWatch: toggleWatch,
     onBreak: toggleBreakpoint,
     onContinue: (dir) => store?.continueTo(dir),
+    onPalette: () => setPalette((v) => !v),
   });
+
+  /**
+   * The palette's command list, rebuilt per keystroke because some commands
+   * read the query -- "142" is the step command and exists only while that is
+   * what is typed.
+   *
+   * `version` is in the dependency list on purpose: the play/pause and detail
+   * commands name the state they will move AWAY from, and a list built once
+   * would offer to pause something that already stopped.
+   */
+  const buildPalette = useCallback((query) => buildCommands({
+    catalog, algo, store, trace, theme, hueless, focus, breakpoints, query,
+    actions: {
+      pick: setAlgo,
+      setTheme,
+      setHueless,
+      help: () => setShowKeys(true),
+      watch: toggleWatch,
+      breakpoint: toggleBreakpoint,
+      save: trace && rawText.current ? save : null,
+    },
+  }), [catalog, algo, store, trace, theme, hueless, focus, breakpoints,
+       toggleWatch, toggleBreakpoint, save, version]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const setFocusIfUnpinned = useCallback((f) => {
     setFocus((cur) => (pinned ? cur : f));
@@ -356,6 +383,7 @@ export default function App() {
         <EmptyState catalog={catalog} onPick={setAlgo} offline={offline} onOpen={openFile} />
         <div className="transport" />
         {showKeys && <Shortcuts onClose={() => setShowKeys(false)} />}
+        {palette && <Palette build={buildPalette} onClose={() => setPalette(false)} />}
         {dragging && <DropOverlay />}
       </div>
     );
@@ -425,6 +453,7 @@ export default function App() {
       <Transport store={store} version={version}
                  hasBreakpoints={breakpoints.length > 0} canContinue={liveBps.size > 0} />
       {showKeys && <Shortcuts onClose={() => setShowKeys(false)} />}
+      {palette && <Palette build={buildPalette} onClose={() => setPalette(false)} />}
       {dragging && <DropOverlay />}
     </div>
   );

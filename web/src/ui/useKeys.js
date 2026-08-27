@@ -9,14 +9,28 @@ import { useEffect } from 'react';
  *
  * @param {import('../player/store.js').PlayerStore|null} store
  * @param {{onHelp?: () => void, onFit?: () => void, onWatch?: () => void,
- *          onBreak?: () => void, onContinue?: (dir: number) => void}} handlers
+ *          onBreak?: () => void, onContinue?: (dir: number) => void,
+ *          onPalette?: () => void}} handlers
  */
 export function useKeys(store, handlers = {}) {
   useEffect(() => {
     const onKey = (e) => {
       const el = /** @type {HTMLElement} */ (e.target);
-      if (el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName)) return;
+      const typing = el && /^(INPUT|SELECT|TEXTAREA)$/.test(el.tagName);
+
+      // ctrl+K is checked BEFORE the modifier guard and before the typing
+      // guard, because it is the one shortcut people arrive already knowing and
+      // it has to work from anywhere -- including from inside the input the
+      // palette itself owns, where it closes again.
+      if ((e.metaKey || e.ctrlKey) && !e.altKey && e.key.toLowerCase() === 'k') {
+        handlers.onPalette?.();
+        e.preventDefault();
+        return;
+      }
+      if (typing) return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === '/') { handlers.onPalette?.(); e.preventDefault(); return; }
 
       if (e.key === '?') { handlers.onHelp?.(); e.preventDefault(); return; }
       if (e.key === 'Escape') { handlers.onFit?.(); return; }

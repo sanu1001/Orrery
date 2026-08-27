@@ -1088,6 +1088,57 @@ div.codeline  { cursor: default; }
 }
 .skiplink:focus { top: var(--s3); }
 
+/* ------------------------------------------------------------ palette ---- */
+
+/* Near the top rather than centred: the list grows downward, and a box that
+   grows from the middle of the screen moves its own input while you type. */
+.palette-wrap {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgb(0 0 0 / 0.45);
+  display: flex; justify-content: center; align-items: flex-start;
+  padding-top: 12vh;
+}
+.palette {
+  width: min(620px, 92vw);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--r-panel); box-shadow: var(--shadow-pop);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.palette-input {
+  border: 0; border-bottom: 1px solid var(--border); border-radius: 0;
+  background: transparent; color: var(--text);
+  font-family: var(--font-ui); font-size: var(--t-lg);
+  padding: var(--s3) var(--s4);
+}
+.palette-input:focus { outline: none; }
+.palette-input::placeholder { color: var(--text-dim); }
+
+.palette-list { max-height: 46vh; overflow-y: auto; padding: var(--s1) 0; }
+.palette-row {
+  display: flex; align-items: baseline; gap: var(--s3);
+  padding: var(--s2) var(--s4); cursor: pointer;
+}
+/* Hover does NOT style the row. The keyboard owns the selection here, and a
+   pointer resting anywhere over the list would otherwise show a second
+   highlight that Enter does not act on. Mouse movement moves the real
+   selection instead, so there is only ever one. */
+.palette-row[data-active="1"] { background: var(--surface-raise); }
+.palette-row[data-active="1"] .palette-title { color: var(--text); }
+
+.palette-group {
+  font-size: var(--t-xs); text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--text-dim); min-width: 68px;
+}
+.palette-title { flex: 1; font-size: var(--t-md); color: var(--text-dim); }
+.palette-hint {
+  font-family: var(--font-mono); font-size: var(--t-xs); color: var(--text-dim);
+}
+.palette-foot {
+  border-top: 1px solid var(--border); padding: var(--s2) var(--s4);
+  font-size: var(--t-xs); color: var(--text-dim);
+}
+.palette-foot kbd { margin-right: 4px; }
+
 /* ------------------------------------------------------------- hueless --- */
 
 /* Drop the five semantic hues to greys, leaving every other channel intact.
