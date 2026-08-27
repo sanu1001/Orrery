@@ -1,6 +1,8 @@
 package api
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -16,15 +18,34 @@ import (
 )
 
 type Server struct {
-	cfg Config
-	db  *store.DB
-	q   *dbq.Queries
-	log *slog.Logger
+	cfg     Config
+	db      *store.DB
+	q       *dbq.Queries
+	log     *slog.Logger
+	lim     *Limiter
+	metrics *Registry
 }
 
 func New(cfg Config, db *store.DB, log *slog.Logger) *Server {
-	return &Server{cfg: cfg, db: db, q: dbq.New(db.Pool), log: log}
+	return &Server{
+		cfg: cfg, db: db, q: dbq.New(db.Pool), log: log,
+		lim:     NewLimiter(),
+		metrics: NewRegistry(),
+	}
 }
+
+// Close releases what New started. Only the limiter's reaper, today.
+func (s *Server) Close() { s.lim.Close() }
+
+// Budgets, and the reason there is more than one: the two workloads cost three
+// orders of magnitude apart. A cached trace is a database read; a share writes
+// a row that stays. One shared allowance would either throttle the cheap path
+// to protect the expensive one or fail to protect it at all. BACKEND.md 4.
+var (
+	budgetTrace   = Budget{PerMin: 30, Burst: 10}
+	budgetShare   = Budget{PerMin: 10, Burst: 5}
+	budgetDefault = Budget{PerMin: 120, Burst: 30}
+)
 
 func (s *Server) Routes() http.Handler {
 	r := chi.NewRouter()
@@ -39,17 +60,38 @@ func (s *Server) Routes() http.Handler {
 	// will parse XFF from the right against a configured proxy CIDR instead.
 	// Installing RealIP now would mean E2 silently inherits the bypass.
 
+	// The probes and the scrape are NOT rate-limited. They are called on a
+	// fixed schedule by infrastructure that is not the threat, and a liveness
+	// probe that gets a 429 gets the container killed -- turning the limiter
+	// into an outage rather than a defence.
 	r.Get("/healthz", s.healthz)
 	r.Get("/readyz", s.readyz)
+	r.Get("/metrics", s.metricsHandler)
 
 	r.Route("/api", func(r chi.Router) {
-		r.Get("/algorithms", s.algorithms)
-		r.Post("/trace", s.postTrace)
-		r.Get("/trace/{key}", s.getTrace)
-		r.Post("/share", s.postShare)
-		r.Get("/share/{id}", s.getShare)
+		// The budget is attached per ROUTE rather than derived from the path,
+		// because the path carries ids: a limiter keyed by /api/share/abc123
+		// never sees the same key twice and therefore never limits anything.
+		r.With(s.limit("read", budgetDefault)).Get("/algorithms", s.algorithms)
+		r.With(s.limit("trace", budgetTrace)).Post("/trace", s.postTrace)
+		r.With(s.limit("read", budgetDefault)).Get("/trace/{key}", s.getTrace)
+		r.With(s.limit("share", budgetShare)).Post("/share", s.postShare)
+		r.With(s.limit("read", budgetDefault)).Get("/share/{id}", s.getShare)
 	})
 	return r
+}
+
+// metricsHandler serves the Prometheus text exposition format.
+//
+// Unauthenticated, and that is a deployment decision rather than an oversight:
+// nothing here is a secret -- four counters and a latency histogram over public
+// endpoints -- and the alternative, a bearer token in yet another environment
+// variable, protects nothing while adding a way for the scrape to break
+// silently. If this ever carries anything sensitive, bind it to a second
+// listener rather than bolting auth onto the public one.
+func (s *Server) metricsHandler(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; version=0.0.4; charset=utf-8")
+	s.metrics.Write(w)
 }
 
 // healthz is liveness: the process is up. It must not touch Postgres. A
@@ -115,8 +157,22 @@ func (s *Server) logRequests(next http.Handler) http.Handler {
 			"method", r.Method, "path", r.URL.Path,
 			"status", ww.Status(), "bytes", ww.BytesWritten(),
 			"dur_ms", time.Since(start).Milliseconds(),
+			"ip_hash", s.ipHash(r),
 			"req_id", middleware.GetReqID(r.Context()))
 	})
+}
+
+// ipHash is what goes in the log instead of the address.
+//
+// There is no reason for this project to retain visitor IPs, and being able to
+// say so plainly is worth more than the data would be. Salted, because an
+// unsalted hash of an IPv4 address is not anonymised at all -- the whole space
+// is 2^32 and a rainbow table over it is minutes of work. Truncated to twelve
+// hex characters, which is enough to correlate two requests within one log and
+// not enough to be worth attacking.
+func (s *Server) ipHash(r *http.Request) string {
+	sum := sha256.Sum256([]byte(s.cfg.IPSalt + "\x00" + s.clientIP(r)))
+	return hex.EncodeToString(sum[:])[:12]
 }
 
 func (s *Server) writeJSON(w http.ResponseWriter, code int, v any) {

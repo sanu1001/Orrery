@@ -70,6 +70,7 @@ func (s *Server) postTrace(w http.ResponseWriter, r *http.Request) {
 	if row, err := s.q.GetCachedTrace(r.Context(), key); err == nil {
 		raw, err := gunzip(row.Body)
 		if err == nil {
+			s.metrics.Inc("orrery_trace_requests_total", "algo", spec.ID, "cache", "hit")
 			w.Header().Set("ETag", `"`+key+`"`)
 			s.writeJSON(w, http.StatusOK, traceResp{Key: key, Trace: raw})
 			return
@@ -82,7 +83,13 @@ func (s *Server) postTrace(w http.ResponseWriter, r *http.Request) {
 		s.log.Error("cache read", "key", key, "err", err)
 	}
 
+	s.metrics.Inc("orrery_trace_requests_total", "algo", spec.ID, "cache", "miss")
+	// Timed with a defer so the FAILURE paths are measured too. A histogram
+	// that only records successes reports a healthy p99 for a server that is
+	// timing out, which is the opposite of what it is for.
+	done := s.metrics.Timer("orrery_trace_generate_seconds", "algo", spec.ID)
 	t, err := gen.Generate(spec.ID, resolved, req.Seed, s.cfg.TraceDeadline)
+	done()
 	if err != nil {
 		s.writeErr(w, http.StatusInternalServerError, err.Error())
 		return

@@ -292,9 +292,9 @@ same statement whatever shape it makes.
 Stage A is built and green, plus C6 (the trace as a downloadable/droppable
 file), B1 + B2 + B3 (tree, linked-list and graph renderers), C1/C2 (breakpoints
 and watches), B4 (the array/tree duality), B6 (fifteen more algorithms), C3
-(measured complexity) and C10 (the command palette). 32 algorithms, 7 renderer
-families plus the call stack pane, CLI including a terminal player, Go↔JS
-conformance over 1,172 step hashes.
+(measured complexity), C10 (the command palette) and E2 (rate limiting and
+metrics). 32 algorithms, 7 renderer families plus the call stack pane, CLI
+including a terminal player, Go↔JS conformance over 1,172 step hashes.
 
 Every `Spec` now declares `Complexity` and `Sweep`. `orrery complexity` runs
 each algorithm across its sweep range at build time; `lib/complexity.js` fits a
@@ -316,8 +316,26 @@ Two things about it are worth knowing before changing it. The cache key hashes
 the RESOLVED input, so `{}` and an explicit `{"n":6}` are one cache entry
 rather than two — hashing the raw body would miss on the most common request
 there is. And `middleware.RealIP` is deliberately NOT installed: it trusts the
-leftmost `X-Forwarded-For`, which is the value a client controls, so E2's rate
-limiter would silently inherit the bypass.
+leftmost `X-Forwarded-For`, which is the value a client controls.
+
+E2 is built, and `ratelimit.go` is where that last point is cashed. `clientIP`
+walks `X-Forwarded-For` from the RIGHT, discarding hops inside
+`ORRERY_TRUSTED_PROXIES` and stopping at the first that is not — the last
+address an attacker cannot forge. With no trusted proxies configured the header
+is ignored entirely, which is the safe default. Buckets are keyed by
+attacker-controlled input, so the reaper is not tidiness: without it the map is
+an unbounded memory leak reachable by anyone with a header.
+
+Both the token bucket and the metrics registry are hand-rolled, and the reasons
+are written at the top of each file: `golang.org/x/time/rate` is twenty-five
+lines of arithmetic and `prometheus/client_golang` is ~40 transitive modules
+for four metrics. The trade is stated rather than hidden — no exemplars, no
+runtime collectors — and everything outside `metrics.go` calls only `Inc` and
+`Observe`, so swapping in the real client stays a contained change.
+
+The request log carries `ip_hash`, not `ip`: salted (a random salt per process
+by default), truncated to twelve hex characters. An unsalted hash of an IPv4
+address is not anonymised at all — the whole space is 2^32.
 
 `player/breakpoints.js` is worth reading once: matching a breakpoint is a scan
 over EVENTS, never a replay, because every `set` carries its full `to` rather

@@ -1,7 +1,10 @@
 package api
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
+	"net"
 	"os"
 	"strings"
 	"time"
@@ -28,6 +31,20 @@ type Config struct {
 	// tracer marks the trace truncated and the user sees how far an exponential
 	// algorithm got, which is the lesson. BACKEND.md 2.1, ADR 0014.
 	TraceDeadline time.Duration
+
+	// TrustedProxies are the CIDRs of our own infrastructure. EMPTY MEANS
+	// "ignore X-Forwarded-For entirely", which is the safe default: a server
+	// reached directly sees the real peer in RemoteAddr, and honouring a
+	// forwarded header nobody stripped means honouring one anybody can send.
+	// See clientIP in ratelimit.go for how the list is used.
+	TrustedProxies []*net.IPNet
+
+	// IPSalt salts the hash that goes in the request log. A random salt per
+	// process is the default and it is the right one: it makes a single log
+	// file correlatable within a run and useless afterwards, which is exactly
+	// as much as this project has any business retaining. Set it explicitly
+	// only if correlation ACROSS restarts is genuinely wanted.
+	IPSalt string
 }
 
 // Stage B adds CompileWorkers, CompileQueue, CompileTimeout, ArtifactDir and
@@ -44,6 +61,7 @@ func Load() (Config, error) {
 		DatabaseURL:   os.Getenv("DATABASE_URL"),
 		Env:           env("ORRERY_ENV", "dev"),
 		TraceDeadline: 5 * time.Second,
+		IPSalt:        env("ORRERY_IP_SALT", randomSalt()),
 	}
 	if o := os.Getenv("ORRERY_CORS_ORIGINS"); o != "" {
 		for _, s := range strings.Split(o, ",") {
@@ -58,6 +76,33 @@ func Load() (Config, error) {
 			return c, fmt.Errorf("ORRERY_TRACE_DEADLINE: %q is not a duration", d)
 		}
 		c.TraceDeadline = v
+	}
+
+	if p := os.Getenv("ORRERY_TRUSTED_PROXIES"); p != "" {
+		for _, raw := range strings.Split(p, ",") {
+			raw = strings.TrimSpace(raw)
+			if raw == "" {
+				continue
+			}
+			// A bare address is accepted as a /32 or /128, because "the proxy is
+			// at 10.0.0.7" is how people think about it and demanding a mask
+			// for one host is the kind of friction that gets worked around by
+			// widening the range instead.
+			if !strings.Contains(raw, "/") {
+				if ip := net.ParseIP(raw); ip != nil {
+					bits := 32
+					if ip.To4() == nil {
+						bits = 128
+					}
+					raw = fmt.Sprintf("%s/%d", raw, bits)
+				}
+			}
+			_, n, err := net.ParseCIDR(raw)
+			if err != nil {
+				return c, fmt.Errorf("ORRERY_TRUSTED_PROXIES: %q is not an address or CIDR", raw)
+			}
+			c.TrustedProxies = append(c.TrustedProxies, n)
+		}
 	}
 
 	var bad []string
@@ -84,8 +129,25 @@ func Load() (Config, error) {
 // variable that was not what someone thought -- but a password in a log line
 // outlives the incident it was meant to help with.
 func (c Config) Redacted() string {
-	return fmt.Sprintf("addr=%s env=%s db=%s cors=%v traceDeadline=%s",
-		c.Addr, c.Env, redactURL(c.DatabaseURL), c.CORSOrigins, c.TraceDeadline)
+	proxies := make([]string, 0, len(c.TrustedProxies))
+	for _, n := range c.TrustedProxies {
+		proxies = append(proxies, n.String())
+	}
+	// The salt is not printed. It is the only reason the hashed IPs in the log
+	// are not reversible by anyone holding the log.
+	return fmt.Sprintf("addr=%s env=%s db=%s cors=%v traceDeadline=%s trustedProxies=%v",
+		c.Addr, c.Env, redactURL(c.DatabaseURL), c.CORSOrigins, c.TraceDeadline, proxies)
+}
+
+// randomSalt is 16 bytes from crypto/rand. It cannot fail in practice, and if
+// the platform's entropy source is genuinely broken then a server that refuses
+// to start is the correct outcome rather than one that logs correlatable IPs.
+func randomSalt() string {
+	b := make([]byte, 16)
+	if _, err := rand.Read(b); err != nil {
+		panic("api: no entropy for the IP log salt: " + err.Error())
+	}
+	return hex.EncodeToString(b)
 }
 
 // redactURL blanks the password in a postgres URL without parsing it as a URL.

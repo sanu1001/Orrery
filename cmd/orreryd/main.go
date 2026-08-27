@@ -58,9 +58,16 @@ func main() {
 
 	go evictLoop(ctx, db, log)
 
+	// Held rather than inlined so Close can stop the rate limiter's reaper on
+	// the way out. It matters little in a process that exits anyway, and it
+	// matters a lot in the tests, where a leaked goroutine per case eventually
+	// reports something unrelated.
+	app := api.New(cfg, db, log)
+	defer app.Close()
+
 	srv := &http.Server{
 		Addr:    cfg.Addr,
-		Handler: api.New(cfg, db, log).Routes(),
+		Handler: app.Routes(),
 
 		// ReadHeaderTimeout is the slowloris defence and the only one of these
 		// that matters for an attack rather than for hygiene.

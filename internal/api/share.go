@@ -94,6 +94,7 @@ func (s *Server) postShare(w http.ResponseWriter, r *http.Request) {
 		s.writeErr(w, http.StatusInternalServerError, "could not create share")
 		return
 	}
+	s.metrics.Inc("orrery_share_created_total", "algo", spec.ID)
 	s.writeJSON(w, http.StatusOK, shareResp{ID: id})
 }
 
