@@ -16,6 +16,7 @@ import { parseTraceFile, traceFilename, MAX_FILE_BYTES } from '../src/lib/tracef
 import { matchFrom, hits, history } from '../src/player/breakpoints.js';
 import { fitGrowth, agrees } from '../src/lib/complexity.js';
 import { stepIndexOf } from '../src/player/steps.js';
+import { State } from '../src/player/state.js';
 
 // fileURLToPath, not `.pathname`: on Windows the latter yields "/D:/..." with a
 // leading slash, which readdir then resolves against the current drive as
@@ -386,6 +387,47 @@ for (const { id, t } of traces) {
     && agrees('O(n log n)', { name: 'O(n)' }) === false
     && agrees('O(n)', null) === null);
 }
+
+// --- the state hash walks UTF-8 BYTES ---------------------------------------
+// Go indexes a string by byte, so its FNV runs over the UTF-8 encoding.
+// `charCodeAt(i) & 0xff` runs over UTF-16 code units truncated to a byte, which
+// agrees for ASCII and for nothing else -- one arrow glyph in one trace value
+// desynchronised the two players from that step onward. The reference below is
+// a second, deliberately dumb implementation over an explicit byte list, which
+// is the same trick the Go/JS split uses everywhere else.
+{
+  const fnv = (byteLists) => {
+    const MASK = (1n << 64n) - 1n;
+    const PRIME = 1099511628211n;
+    let h = 14695981039346656037n;
+    for (const bytes of byteLists) {
+      for (const b of bytes) {
+        h = ((h ^ BigInt(b)) & MASK) * PRIME & MASK;
+      }
+      h = (h * PRIME) & MASK;
+    }
+    return h;
+  };
+  const stateWith = (value) => {
+    const st = new State({ events: [] });
+    st.forward(0, { t: 'init', s: 'm', kind: 'map', fill: null }, null);
+    st.forward(1, { t: 'set', s: 'm', at: ['k'], from: null, to: value }, null);
+    return st;
+  };
+
+  // "m k=" then the quoted value, then "#stack" -- the address list, exactly as
+  // State.addresses() renders it.
+  const bytesOf = (s) => [...new TextEncoder().encode(s)];
+  check('an ASCII value hashes over its bytes',
+    stateWith('ab').hash() === fnv([bytesOf('m k="ab"'), bytesOf('#stack')]));
+  // U+2192 is three UTF-8 bytes and one UTF-16 code unit. Truncating to a byte
+  // would hash 0x92 alone and quietly agree with nothing.
+  check('and a non-ASCII value hashes over THREE bytes, not one',
+    stateWith('a→b').hash() === fnv([bytesOf('m k="a→b"'), bytesOf('#stack')]));
+  check('so the two differ from a value that truncates to the same byte',
+    stateWith('a→b').hash() !== stateWith('ab').hash());
+}
+
 
 console.log(failures === 0 ? '\nplayer: all checks passed' : `\nplayer: ${failures} FAILED`);
 process.exit(failures === 0 ? 0 : 1);

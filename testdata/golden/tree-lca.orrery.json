@@ -1,0 +1,87 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "tree-lca",
+    "title": "Lowest Common Ancestor",
+    "lang": "go",
+    "input": {
+      "p": 1,
+      "q": 3,
+      "tree": [
+        4,
+        2,
+        7,
+        1,
+        3,
+        6,
+        9
+      ]
+    },
+    "source": {
+      "path": "internal/algos/trees/lca.go",
+      "text": "package trees\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed lca.go\nvar lcaSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"tree-lca\",\n\t\tTitle:  \"Lowest Common Ancestor\",\n\t\tFamily: \"Trees\",\n\t\tBlurb:  \"Each call reports what it found below it, and the first node to hear about both is the answer.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{\n\t\t\t\tName: \"tree\", Kind: \"tree\", Notation: \"leetcode\", Max: 63,\n\t\t\t\tDefault: []any{4, 2, 7, 1, 3, 6, 9},\n\t\t\t\tHelp:    \"LeetCode level order, e.g. [1,2,null,3,4] — nulls have no children of their own\",\n\t\t\t},\n\t\t\t{Name: \"p\", Kind: \"int\", Min: -999, Max: 999, Default: 1},\n\t\t\t{Name: \"q\", Kind: \"int\", Min: -999, Max: 999, Default: 3},\n\t\t},\n\t\tDefaults:   algos.Args{\"tree\": []any{4, 2, 7, 1, 3, 6, 9}, \"p\": 1, \"q\": 3},\n\t\tSource:     trace.Source{Path: \"internal/algos/trees/lca.go\", Text: lcaSrc, FirstLine: 1},\n\t\tTags:       []string{\"tree\", \"recursion\", \"divide-and-conquer\"},\n\t\tComplexity: \"O(n)\",\n\t\tSweep:      []string{\"tree\"},\n\t\tRun:        runLCA,\n\t})\n}\n\n// THE RETURN VALUE IS THE ALGORITHM, which makes this the tree case where the\n// recursion pane earns its place.\n//\n// Every call answers one question about the subtree below it -- \"did you find\n// either of them, and if so which\" -- and the answer travels back UP. A node\n// that hears from both sides is the lowest common ancestor, and nothing else in\n// the tree can be: anything lower saw at most one of them, anything higher\n// heard about both through a single child.\n//\n// So the interesting events here are `ret`, not `set`. The tree pane shows\n// where the walk is; the recursion pane shows what each finished call reported,\n// and the answer appears as the first node whose two children both came back\n// with something. Reading it in the tree alone would mean inferring the\n// returns, which is exactly the work the second pane removes.\nfunc runLCA(tr *tracer.Tracer, args algos.Args) error {\n\ttoks := args.Tokens(\"tree\")\n\tp, q := args.Int(\"p\"), args.Int(\"q\")\n\n\tt := tr.Nodes(\"tree\", binaryTree(\"root\", \"cur\", \"lca\"))\n\troot := buildLeetCode(tr, t, toks)\n\tif root != \"\" {\n\t\tt.Ref(\"root\", root)\n\t}\n\n\ttr.View(\"tree\", \"tree\", 0, tracer.Title(\"tree\"), tracer.StartHere(tr))\n\ttr.View(\"recursionTree\", \"$calls\", 1, tracer.Title(\"what each call reported\"))\n\n\tif root == \"\" {\n\t\treturn tr.Err()\n\t}\n\n\tvar find func(id string) string\n\tfind = func(id string) string {\n\t\t// An empty slot is not a call. Recording one would fill the recursion\n\t\t// pane with leaves that answer a question nobody asked, and the shape of\n\t\t// the search -- which is the thing worth looking at -- would be buried\n\t\t// under twice as many nodes as there are real ones.\n\t\tif id == \"\" {\n\t\t\treturn \"\"\n\t\t}\n\t\tv := val(t, id)\n\t\ttr.Call(\"lca\", tracer.A(\"node\", v))\n\t\tt.Ref(\"cur\", id).Note(\"is %d one of the two, or is one of them below it?\", v)\n\n\t\tif v == p || v == q {\n\t\t\t// A HIT DOES NOT KEEP LOOKING, and that is the subtle part. If the\n\t\t\t// other value is below this one, this node is still the answer --\n\t\t\t// an ancestor of itself counts -- so there is nothing further down\n\t\t\t// worth finding.\n\t\t\ttr.Return(v).Note(\"%d is one of the two -- report it upward\", v)\n\t\t\treturn id\n\t\t}\n\n\t\tl := find(t.Ptr(id, \"left\"))\n\t\tr := find(t.Ptr(id, \"right\"))\n\n\t\tswitch {\n\t\tcase l != \"\" \u0026\u0026 r != \"\":\n\t\t\ttr.Group(func() {\n\t\t\t\tt.Ref(\"lca\", id)\n\t\t\t\tt.Ref(\"cur\", id)\n\t\t\t}).Note(\"%d heard from both sides -- it is the lowest common ancestor\", v)\n\t\t\ttr.Return(v).Note(\"%d is the answer, and it travels up unchanged\", v)\n\t\t\treturn id\n\t\tcase l != \"\":\n\t\t\ttr.Return(val(t, l)).Note(\"only the left side found anything -- pass it up\")\n\t\t\treturn l\n\t\tcase r != \"\":\n\t\t\ttr.Return(val(t, r)).Note(\"only the right side found anything -- pass it up\")\n\t\t\treturn r\n\t\t}\n\t\ttr.Return(nil).Note(\"nothing below %d\", v)\n\t\treturn \"\"\n\t}\n\n\tans := find(root)\n\tif ans == \"\" {\n\t\tt.Ref(\"cur\", \"\").Note(\"%d and %d are not both in this tree\", p, q)\n\t}\n\treturn tr.Err()\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "tree",
+        "s": "tree",
+        "pane": 0,
+        "title": "tree",
+        "startEvent": 15
+      },
+      {
+        "family": "recursionTree",
+        "s": "$calls",
+        "pane": 1,
+        "title": "what each call reported"
+      }
+    ],
+    "counts": {
+      "events": 38,
+      "steps": 31,
+      "structs": 1
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"tree","kind":"nodes","fill":null,"schema":{"fields":{"left":"ptr","right":"ptr","val":"scalar"},"label":"val","order":["left","right"],"refs":["root","cur","lca"]},"ln":56},
+    {"t":"set","s":"tree","at":["n0"],"from":null,"to":{"left":null,"right":null,"val":4},"ln":57,"note":"root is 4"},
+    {"t":"set","s":"tree","at":["n1"],"from":null,"to":{"left":null,"right":null,"val":2},"ln":57,"g":1,"note":"2 is the left child of 4"},
+    {"t":"set","s":"tree","at":["n0","left"],"from":null,"to":{"$":"n1"},"ln":57,"g":1},
+    {"t":"set","s":"tree","at":["n2"],"from":null,"to":{"left":null,"right":null,"val":7},"ln":57,"g":2,"note":"7 is the right child of 4"},
+    {"t":"set","s":"tree","at":["n0","right"],"from":null,"to":{"$":"n2"},"ln":57,"g":2},
+    {"t":"set","s":"tree","at":["n3"],"from":null,"to":{"left":null,"right":null,"val":1},"ln":57,"g":3,"note":"1 is the left child of 2"},
+    {"t":"set","s":"tree","at":["n1","left"],"from":null,"to":{"$":"n3"},"ln":57,"g":3},
+    {"t":"set","s":"tree","at":["n4"],"from":null,"to":{"left":null,"right":null,"val":3},"ln":57,"g":4,"note":"3 is the right child of 2"},
+    {"t":"set","s":"tree","at":["n1","right"],"from":null,"to":{"$":"n4"},"ln":57,"g":4},
+    {"t":"set","s":"tree","at":["n5"],"from":null,"to":{"left":null,"right":null,"val":6},"ln":57,"g":5,"note":"6 is the left child of 7"},
+    {"t":"set","s":"tree","at":["n2","left"],"from":null,"to":{"$":"n5"},"ln":57,"g":5},
+    {"t":"set","s":"tree","at":["n6"],"from":null,"to":{"left":null,"right":null,"val":9},"ln":57,"g":6,"note":"9 is the right child of 7"},
+    {"t":"set","s":"tree","at":["n2","right"],"from":null,"to":{"$":"n6"},"ln":57,"g":6},
+    {"t":"set","s":"tree","at":["$refs","root"],"from":null,"to":{"$":"n0"},"ln":59},
+    {"t":"call","fn":"lca","args":[{"n":"node","v":4}],"ln":79},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":null,"to":{"$":"n0"},"ln":80,"note":"is 4 one of the two, or is one of them below it?"},
+    {"t":"call","fn":"lca","args":[{"n":"node","v":2}],"ln":79},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n0"},"to":{"$":"n1"},"ln":80,"note":"is 2 one of the two, or is one of them below it?"},
+    {"t":"call","fn":"lca","args":[{"n":"node","v":1}],"ln":79},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n1"},"to":{"$":"n3"},"ln":80,"note":"is 1 one of the two, or is one of them below it?"},
+    {"t":"ret","v":1,"ln":87,"note":"1 is one of the two -- report it upward"},
+    {"t":"call","fn":"lca","args":[{"n":"node","v":3}],"ln":79},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n3"},"to":{"$":"n4"},"ln":80,"note":"is 3 one of the two, or is one of them below it?"},
+    {"t":"ret","v":3,"ln":87,"note":"3 is one of the two -- report it upward"},
+    {"t":"set","s":"tree","at":["$refs","lca"],"from":null,"to":{"$":"n1"},"ln":97,"g":7,"note":"2 heard from both sides -- it is the lowest common ancestor"},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n4"},"to":{"$":"n1"},"ln":98,"g":7},
+    {"t":"ret","v":2,"ln":100,"note":"2 is the answer, and it travels up unchanged"},
+    {"t":"call","fn":"lca","args":[{"n":"node","v":7}],"ln":79},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n1"},"to":{"$":"n2"},"ln":80,"note":"is 7 one of the two, or is one of them below it?"},
+    {"t":"call","fn":"lca","args":[{"n":"node","v":6}],"ln":79},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n2"},"to":{"$":"n5"},"ln":80,"note":"is 6 one of the two, or is one of them below it?"},
+    {"t":"ret","v":null,"ln":109,"note":"nothing below 6"},
+    {"t":"call","fn":"lca","args":[{"n":"node","v":9}],"ln":79},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n5"},"to":{"$":"n6"},"ln":80,"note":"is 9 one of the two, or is one of them below it?"},
+    {"t":"ret","v":null,"ln":109,"note":"nothing below 9"},
+    {"t":"ret","v":null,"ln":109,"note":"nothing below 7"},
+    {"t":"ret","v":2,"ln":103,"note":"only the left side found anything -- pass it up"}
+  ]
+}

@@ -1,0 +1,89 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "list-merge",
+    "title": "Merge Two Sorted Lists",
+    "lang": "go",
+    "input": {
+      "a": [
+        1,
+        4,
+        7,
+        9
+      ],
+      "b": [
+        2,
+        3,
+        8,
+        10,
+        12
+      ]
+    },
+    "source": {
+      "path": "internal/algos/lists/merge.go",
+      "text": "package lists\n\nimport (\n\t_ \"embed\"\n\t\"sort\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed merge.go\nvar mergeSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"list-merge\",\n\t\tTitle:  \"Merge Two Sorted Lists\",\n\t\tFamily: \"Linked lists\",\n\t\tBlurb:  \"Take the smaller head each time. No node is created and no value is copied — only arrows move.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"a\", Kind: \"intList\", Max: 20, Default: []int{1, 4, 7, 9},\n\t\t\t\tHelp: \"sorted automatically\"},\n\t\t\t{Name: \"b\", Kind: \"intList\", Max: 20, Default: []int{2, 3, 8, 10, 12},\n\t\t\t\tHelp: \"sorted automatically\"},\n\t\t},\n\t\tDefaults:   algos.Args{\"a\": []int{1, 4, 7, 9}, \"b\": []int{2, 3, 8, 10, 12}},\n\t\tSource:     trace.Source{Path: \"internal/algos/lists/merge.go\", Text: mergeSrc, FirstLine: 1},\n\t\tTags:       []string{\"list\", \"pointers\", \"merge\"},\n\t\tComplexity: \"O(n)\",\n\t\tSweep:      []string{\"a\", \"b\"},\n\t\tRun:        runListMerge,\n\t})\n}\n\n// THIS IS THE ALGORITHM `reflow: \"final\"` EXISTS FOR, and it is the exact\n// opposite of list-reverse.\n//\n// Reversing keeps every node where it was and flips the arrows, so the layout\n// stays in CREATION order and the picture is honest: the data did not move,\n// only the links did. Merging genuinely interleaves two chains, and creation\n// order would draw the result as two blocks with every arrow crossing between\n// them -- correct, unreadable, and a worse picture than the algorithm deserves.\n//\n// So this view declares `reflow: \"final\"`, which lays the nodes out along the\n// FINISHED chain. RENDERERS/LINKED_LIST.md 3 offers both and says the choice is\n// per algorithm; these two files are why.\n//\n// Both lists live in one `nodes` structure, because after the merge they ARE\n// one list. Two structures would need two panes and the result would belong to\n// neither.\nfunc runListMerge(tr *tracer.Tracer, args algos.Args) error {\n\tav := append([]int(nil), args.Ints(\"a\")...)\n\tbv := append([]int(nil), args.Ints(\"b\")...)\n\tsort.Ints(av)\n\tsort.Ints(bv)\n\n\tl := tr.Nodes(\"list\", singly(\"head\", \"a\", \"b\", \"tail\"))\n\t// Ids must be unique across BOTH lists -- they are the identity the layout\n\t// works from -- so the second build starts where the first stopped.\n\tln := tr.CallerLine(1)\n\tha := buildAt(tr, l, av, false, 0, ln)\n\thb := buildAt(tr, l, bv, false, len(av), ln)\n\n\ttr.Group(func() {\n\t\tif ha != \"\" {\n\t\t\tl.Ref(\"a\", ha)\n\t\t}\n\t\tif hb != \"\" {\n\t\t\tl.Ref(\"b\", hb)\n\t\t}\n\t}).Note(\"two sorted lists, each with its own head\")\n\n\ttr.View(\"linkedList\", \"list\", 0,\n\t\ttracer.Title(\"merging\"),\n\t\ttracer.Opt(\"reflow\", \"final\"),\n\t\ttracer.StartHere(tr))\n\n\ta, b := ha, hb\n\tif a == \"\" || b == \"\" {\n\t\t// One empty list means the answer is the other one, and the whole merge\n\t\t// is a single pointer write. Worth tracing rather than special-casing\n\t\t// into silence: it is the base case, and it is where the loop below\n\t\t// ends up anyway.\n\t\thead := a\n\t\tif head == \"\" {\n\t\t\thead = b\n\t\t}\n\t\tl.Ref(\"head\", head).Note(\"one list is empty -- the answer is the other one\")\n\t\treturn tr.Err()\n\t}\n\n\t// Pick the smaller head. Everything after this appends to `tail`, so the\n\t// first step is the only one that writes `head`.\n\tvar head, took string\n\tif val(l, a) \u003c= val(l, b) {\n\t\thead, took, a = a, \"a\", l.Ptr(a, \"next\")\n\t} else {\n\t\thead, took, b = b, \"b\", l.Ptr(b, \"next\")\n\t}\n\ttail := head\n\tmoved := a\n\tif took == \"b\" {\n\t\tmoved = b\n\t}\n\ttr.Group(func() {\n\t\tl.Ref(\"head\", head)\n\t\tl.Ref(\"tail\", head)\n\t\t// ONLY the pointer that moved. Rewriting the other one with the value it\n\t\t// already holds is check V11, and it claims a change the picture does\n\t\t// not make.\n\t\tl.Ref(took, moved)\n\t}).Note(\"%d is the smaller of the two heads, so it starts the merged list\", val(l, head))\n\n\tfor a != \"\" \u0026\u0026 b != \"\" {\n\t\tva, vb := val(l, a), val(l, b)\n\t\ttake, from := a, \"a\"\n\t\tif vb \u003c va {\n\t\t\ttake, from = b, \"b\"\n\t\t}\n\t\tnext := l.Ptr(take, \"next\")\n\t\tprev := tail\n\n\t\t// THE RELINK AND BOTH POINTER MOVES ARE ONE STEP. Split apart, there is\n\t\t// a frame in which `tail` still points at the old end while its `next`\n\t\t// already reaches the new one, and the renderer draws a chain that the\n\t\t// algorithm is not holding.\n\t\tkept, dropped := va, vb\n\t\tif from == \"b\" {\n\t\t\tkept, dropped = vb, va\n\t\t}\n\t\tlinked := l.Ptr(prev, \"next\") == take\n\t\ttr.Group(func() {\n\t\t\t// TWO CONSECUTIVE TAKES FROM THE SAME LIST NEED NO RELINK AT ALL --\n\t\t\t// the arrow between them was already there, put in by whoever built\n\t\t\t// the list. Writing it again would be check V11 and, worse, would\n\t\t\t// claim a change the picture does not make. It is also the reason\n\t\t\t// merging is cheap: on sorted-ish input most steps move a pointer\n\t\t\t// and touch nothing else.\n\t\t\tif !linked {\n\t\t\t\tl.Link(prev, \"next\", take)\n\t\t\t}\n\t\t\tl.Ref(\"tail\", take).\n\t\t\t\tBecause(\"%d \u003c= %d\", kept, dropped).\n\t\t\t\tFrom(l.Cell(a, \"val\"), l.Cell(b, \"val\"))\n\t\t\tl.Ref(from, next)\n\t\t}).Note(\"%s\", takeNote(kept, from, linked))\n\n\t\ttail = take\n\t\tif from == \"a\" {\n\t\t\ta = next\n\t\t} else {\n\t\t\tb = next\n\t\t}\n\t}\n\n\t// WHATEVER IS LEFT IS ALREADY SORTED AND ALREADY LINKED, so the tail of the\n\t// merge points at it once and the rest costs nothing. Walking it node by\n\t// node would be the same picture drawn slowly.\n\trest, side := a, \"a\"\n\tif rest == \"\" {\n\t\trest, side = b, \"b\"\n\t}\n\tprev := tail\n\ttr.Group(func() {\n\t\tif rest != \"\" {\n\t\t\tl.Link(prev, \"next\", rest)\n\t\t\tl.Ref(side, \"\")\n\t\t}\n\t\tl.Ref(\"tail\", \"\")\n\t}).Note(\"%s\", endNote(rest, side))\n\treturn tr.Err()\n}\n\nfunc takeNote(v int, from string, linked bool) string {\n\tif linked {\n\t\treturn \"take \" + itoa(v) + \" from list \" + from + \" -- it already follows\"\n\t}\n\treturn \"take \" + itoa(v) + \" from list \" + from\n}\n\nfunc endNote(rest, side string) string {\n\tif rest == \"\" {\n\t\treturn \"both lists are exhausted, and the merged list is complete\"\n\t}\n\treturn \"list \" + other(side) + \" is empty, so the rest of \" + side + \" follows unchanged\"\n}\n\nfunc other(s string) string {\n\tif s == \"a\" {\n\t\treturn \"b\"\n\t}\n\treturn \"a\"\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "linkedList",
+        "s": "list",
+        "pane": 0,
+        "title": "merging",
+        "options": {
+          "reflow": "final"
+        },
+        "startEvent": 19
+      }
+    ],
+    "counts": {
+      "events": 41,
+      "steps": 19,
+      "structs": 1
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"list","kind":"nodes","fill":null,"schema":{"fields":{"next":"ptr","val":"scalar"},"label":"val","order":["next"],"refs":["head","a","b","tail"]},"ln":58},
+    {"t":"set","s":"list","at":["n0"],"from":null,"to":{"next":null,"val":1},"ln":61,"note":"head is 1"},
+    {"t":"set","s":"list","at":["n1"],"from":null,"to":{"next":null,"val":4},"ln":61,"g":1,"note":"4 follows 1"},
+    {"t":"set","s":"list","at":["n0","next"],"from":null,"to":{"$":"n1"},"ln":61,"g":1},
+    {"t":"set","s":"list","at":["n2"],"from":null,"to":{"next":null,"val":7},"ln":61,"g":2,"note":"7 follows 4"},
+    {"t":"set","s":"list","at":["n1","next"],"from":null,"to":{"$":"n2"},"ln":61,"g":2},
+    {"t":"set","s":"list","at":["n3"],"from":null,"to":{"next":null,"val":9},"ln":61,"g":3,"note":"9 follows 7"},
+    {"t":"set","s":"list","at":["n2","next"],"from":null,"to":{"$":"n3"},"ln":61,"g":3},
+    {"t":"set","s":"list","at":["n4"],"from":null,"to":{"next":null,"val":2},"ln":61,"note":"head is 2"},
+    {"t":"set","s":"list","at":["n5"],"from":null,"to":{"next":null,"val":3},"ln":61,"g":4,"note":"3 follows 2"},
+    {"t":"set","s":"list","at":["n4","next"],"from":null,"to":{"$":"n5"},"ln":61,"g":4},
+    {"t":"set","s":"list","at":["n6"],"from":null,"to":{"next":null,"val":8},"ln":61,"g":5,"note":"8 follows 3"},
+    {"t":"set","s":"list","at":["n5","next"],"from":null,"to":{"$":"n6"},"ln":61,"g":5},
+    {"t":"set","s":"list","at":["n7"],"from":null,"to":{"next":null,"val":10},"ln":61,"g":6,"note":"10 follows 8"},
+    {"t":"set","s":"list","at":["n6","next"],"from":null,"to":{"$":"n7"},"ln":61,"g":6},
+    {"t":"set","s":"list","at":["n8"],"from":null,"to":{"next":null,"val":12},"ln":61,"g":7,"note":"12 follows 10"},
+    {"t":"set","s":"list","at":["n7","next"],"from":null,"to":{"$":"n8"},"ln":61,"g":7},
+    {"t":"set","s":"list","at":["$refs","a"],"from":null,"to":{"$":"n0"},"ln":67,"g":8,"note":"two sorted lists, each with its own head"},
+    {"t":"set","s":"list","at":["$refs","b"],"from":null,"to":{"$":"n4"},"ln":70,"g":8},
+    {"t":"set","s":"list","at":["$refs","head"],"from":null,"to":{"$":"n0"},"ln":107,"g":9,"note":"1 is the smaller of the two heads, so it starts the merged list"},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":null,"to":{"$":"n0"},"ln":108,"g":9},
+    {"t":"set","s":"list","at":["$refs","a"],"from":{"$":"n0"},"to":{"$":"n1"},"ln":112,"g":9},
+    {"t":"set","s":"list","at":["n0","next"],"from":{"$":"n1"},"to":{"$":"n4"},"ln":141,"g":10,"note":"take 2 from list b"},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":{"$":"n0"},"to":{"$":"n4"},"expr":"2 \u003c= 4","deps":[{"s":"list","at":["n1","val"],"v":4},{"s":"list","at":["n4","val"],"v":2}],"ln":143,"g":10},
+    {"t":"set","s":"list","at":["$refs","b"],"from":{"$":"n4"},"to":{"$":"n5"},"ln":146,"g":10},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":{"$":"n4"},"to":{"$":"n5"},"expr":"3 \u003c= 4","deps":[{"s":"list","at":["n1","val"],"v":4},{"s":"list","at":["n5","val"],"v":3}],"ln":143,"g":11,"note":"take 3 from list b -- it already follows"},
+    {"t":"set","s":"list","at":["$refs","b"],"from":{"$":"n5"},"to":{"$":"n6"},"ln":146,"g":11},
+    {"t":"set","s":"list","at":["n5","next"],"from":{"$":"n6"},"to":{"$":"n1"},"ln":141,"g":12,"note":"take 4 from list a"},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":{"$":"n5"},"to":{"$":"n1"},"expr":"4 \u003c= 8","deps":[{"s":"list","at":["n1","val"],"v":4},{"s":"list","at":["n6","val"],"v":8}],"ln":143,"g":12},
+    {"t":"set","s":"list","at":["$refs","a"],"from":{"$":"n1"},"to":{"$":"n2"},"ln":146,"g":12},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":{"$":"n1"},"to":{"$":"n2"},"expr":"7 \u003c= 8","deps":[{"s":"list","at":["n2","val"],"v":7},{"s":"list","at":["n6","val"],"v":8}],"ln":143,"g":13,"note":"take 7 from list a -- it already follows"},
+    {"t":"set","s":"list","at":["$refs","a"],"from":{"$":"n2"},"to":{"$":"n3"},"ln":146,"g":13},
+    {"t":"set","s":"list","at":["n2","next"],"from":{"$":"n3"},"to":{"$":"n6"},"ln":141,"g":14,"note":"take 8 from list b"},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":{"$":"n2"},"to":{"$":"n6"},"expr":"8 \u003c= 9","deps":[{"s":"list","at":["n3","val"],"v":9},{"s":"list","at":["n6","val"],"v":8}],"ln":143,"g":14},
+    {"t":"set","s":"list","at":["$refs","b"],"from":{"$":"n6"},"to":{"$":"n7"},"ln":146,"g":14},
+    {"t":"set","s":"list","at":["n6","next"],"from":{"$":"n7"},"to":{"$":"n3"},"ln":141,"g":15,"note":"take 9 from list a"},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":{"$":"n6"},"to":{"$":"n3"},"expr":"9 \u003c= 10","deps":[{"s":"list","at":["n3","val"],"v":9},{"s":"list","at":["n7","val"],"v":10}],"ln":143,"g":15},
+    {"t":"set","s":"list","at":["$refs","a"],"from":{"$":"n3"},"to":null,"ln":146,"g":15},
+    {"t":"set","s":"list","at":["n3","next"],"from":null,"to":{"$":"n7"},"ln":167,"g":16,"note":"list a is empty, so the rest of b follows unchanged"},
+    {"t":"set","s":"list","at":["$refs","b"],"from":{"$":"n7"},"to":null,"ln":168,"g":16},
+    {"t":"set","s":"list","at":["$refs","tail"],"from":{"$":"n3"},"to":null,"ln":170,"g":16}
+  ]
+}

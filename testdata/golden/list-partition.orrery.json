@@ -1,0 +1,79 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "list-partition",
+    "title": "Partition a Linked List",
+    "lang": "go",
+    "input": {
+      "values": [
+        1,
+        4,
+        3,
+        2,
+        5,
+        2
+      ],
+      "x": 3
+    },
+    "source": {
+      "path": "internal/algos/lists/partition.go",
+      "text": "package lists\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed partition.go\nvar partitionSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"list-partition\",\n\t\tTitle:  \"Partition a Linked List\",\n\t\tFamily: \"Linked lists\",\n\t\tBlurb:  \"Deal every node into one of two chains, then join them. Nothing is compared twice.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"values\", Kind: \"intList\", Max: 24, Default: []int{1, 4, 3, 2, 5, 2},\n\t\t\t\tHelp: \"up to 24 values\"},\n\t\t\t{Name: \"x\", Kind: \"int\", Min: -999, Max: 999, Default: 3,\n\t\t\t\tHelp: \"values below x come first\"},\n\t\t},\n\t\tDefaults:   algos.Args{\"values\": []int{1, 4, 3, 2, 5, 2}, \"x\": 3},\n\t\tSource:     trace.Source{Path: \"internal/algos/lists/partition.go\", Text: partitionSrc, FirstLine: 1},\n\t\tTags:       []string{\"list\", \"pointers\", \"stable\"},\n\t\tComplexity: \"O(n)\",\n\t\tSweep:      []string{\"values\"},\n\t\tRun:        runPartition,\n\t})\n}\n\n// THE TWO TAILS ARE THE ALGORITHM, and they are why this needs a picture more\n// than most list problems do.\n//\n// The obvious approach -- walk the list and move small nodes to the front -- is\n// O(n^2) and it is not stable. The trick is to stop treating it as one list:\n// deal every node into one of TWO chains, in order, and then join them. Each\n// node is looked at once, relative order survives inside each chain, and the\n// join is a single pointer write.\n//\n// Four named pointers hold that in place: the head and tail of each chain. The\n// renderer draws all four as chips on whatever node they point at, so the two\n// chains being built are visible at once -- and the moment they join, the\n// picture becomes one list again with no nodes having moved.\n//\n// `reflow: \"final\"` for the same reason list-merge uses it: this genuinely\n// reorders, so creation order would draw every arrow crossing the pane.\nfunc runPartition(tr *tracer.Tracer, args algos.Args) error {\n\tvals := args.Ints(\"values\")\n\tx := args.Int(\"x\")\n\n\tl := tr.Nodes(\"list\", singly(\"head\", \"cur\", \"lo\", \"loTail\", \"hi\", \"hiTail\"))\n\thead := build(tr, l, vals, false)\n\tif head != \"\" {\n\t\tl.Ref(\"head\", head)\n\t}\n\ttr.View(\"linkedList\", \"list\", 0,\n\t\ttracer.Title(\"partition around \"+itoa(x)),\n\t\ttracer.Opt(\"reflow\", \"final\"),\n\t\ttracer.StartHere(tr))\n\n\tif head == \"\" {\n\t\treturn tr.Err()\n\t}\n\n\tloHead, loTail, hiHead, hiTail := \"\", \"\", \"\", \"\"\n\tfor cur := head; cur != \"\"; {\n\t\tv := val(l, cur)\n\t\tnext := l.Ptr(cur, \"next\")\n\t\tlow := v \u003c x\n\n\t\t// Captured before the group writes anything: after the relink `cur` is\n\t\t// the tail of its chain, and citing its own new position as the reason\n\t\t// it went there would be circular.\n\t\treason := l.Cell(cur, \"val\")\n\t\tnode, tailName := cur, \"hiTail\"\n\t\tprev := hiTail\n\t\tif low {\n\t\t\ttailName, prev = \"loTail\", loTail\n\t\t}\n\t\tfirst := prev == \"\"\n\n\t\ttr.Group(func() {\n\t\t\tl.Ref(\"cur\", node)\n\t\t\tif first {\n\t\t\t\t// The first node of a chain has no predecessor to link from, so\n\t\t\t\t// the chain's head pointer is what records it. Both heads are\n\t\t\t\t// written exactly once in the whole run.\n\t\t\t\tl.Ref(headName(low), node).\n\t\t\t\t\tBecause(\"%d %s %d\", v, cmpWord(low), x).\n\t\t\t\t\tFrom(reason)\n\t\t\t} else {\n\t\t\t\tlinkIf(tr, l, prev, \"next\", node).\n\t\t\t\t\tBecause(\"%d %s %d\", v, cmpWord(low), x).\n\t\t\t\t\tFrom(reason)\n\t\t\t}\n\t\t\tl.Ref(tailName, node)\n\t\t}).Note(\"%d goes on the %s chain\", v, sideWord(low))\n\n\t\tif low {\n\t\t\tif first {\n\t\t\t\tloHead = node\n\t\t\t}\n\t\t\tloTail = node\n\t\t} else {\n\t\t\tif first {\n\t\t\t\thiHead = node\n\t\t\t}\n\t\t\thiTail = node\n\t\t}\n\t\tcur = next\n\t}\n\n\t// THE JOIN, and the one write that can go wrong. The low chain's last node\n\t// still points at whatever followed it in the ORIGINAL list, which is now\n\t// somewhere in the middle of the high chain -- so failing to overwrite it\n\t// leaves a cycle, and failing to terminate the high chain leaves the tail\n\t// pointing back into the middle of the list.\n\tnewHead := loHead\n\tif newHead == \"\" {\n\t\tnewHead = hiHead\n\t}\n\ttr.Group(func() {\n\t\tif hiTail != \"\" {\n\t\t\tlinkIf(tr, l, hiTail, \"next\", \"\")\n\t\t}\n\t\tif loTail != \"\" \u0026\u0026 hiHead != \"\" {\n\t\t\tlinkIf(tr, l, loTail, \"next\", hiHead)\n\t\t}\n\t\trefIf(tr, l, \"head\", newHead)\n\t\trefIf(tr, l, \"cur\", \"\")\n\t\trefIf(tr, l, \"loTail\", \"\")\n\t\trefIf(tr, l, \"hiTail\", \"\")\n\t}).Note(\"%s\", joinNote(loHead, hiHead, x))\n\treturn tr.Err()\n}\n\nfunc joinNote(loHead, hiHead string, x int) string {\n\tswitch {\n\tcase loHead == \"\":\n\t\treturn \"nothing is below \" + itoa(x) + \", so the order is unchanged\"\n\tcase hiHead == \"\":\n\t\treturn \"everything is below \" + itoa(x) + \", so the order is unchanged\"\n\t}\n\treturn \"join the two chains, and terminate the second one\"\n}\n\nfunc headName(low bool) string {\n\tif low {\n\t\treturn \"lo\"\n\t}\n\treturn \"hi\"\n}\n\nfunc cmpWord(low bool) string {\n\tif low {\n\t\treturn \"\u003c\"\n\t}\n\treturn \"\u003e=\"\n}\n\nfunc sideWord(low bool) string {\n\tif low {\n\t\treturn \"low\"\n\t}\n\treturn \"high\"\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "linkedList",
+        "s": "list",
+        "pane": 0,
+        "title": "partition around 3",
+        "options": {
+          "reflow": "final"
+        },
+        "startEvent": 13
+      }
+    ],
+    "counts": {
+      "events": 35,
+      "steps": 15,
+      "structs": 1
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"list","kind":"nodes","fill":null,"schema":{"fields":{"next":"ptr","val":"scalar"},"label":"val","order":["next"],"refs":["head","cur","lo","loTail","hi","hiTail"]},"ln":55},
+    {"t":"set","s":"list","at":["n0"],"from":null,"to":{"next":null,"val":1},"ln":56,"note":"head is 1"},
+    {"t":"set","s":"list","at":["n1"],"from":null,"to":{"next":null,"val":4},"ln":56,"g":1,"note":"4 follows 1"},
+    {"t":"set","s":"list","at":["n0","next"],"from":null,"to":{"$":"n1"},"ln":56,"g":1},
+    {"t":"set","s":"list","at":["n2"],"from":null,"to":{"next":null,"val":3},"ln":56,"g":2,"note":"3 follows 4"},
+    {"t":"set","s":"list","at":["n1","next"],"from":null,"to":{"$":"n2"},"ln":56,"g":2},
+    {"t":"set","s":"list","at":["n3"],"from":null,"to":{"next":null,"val":2},"ln":56,"g":3,"note":"2 follows 3"},
+    {"t":"set","s":"list","at":["n2","next"],"from":null,"to":{"$":"n3"},"ln":56,"g":3},
+    {"t":"set","s":"list","at":["n4"],"from":null,"to":{"next":null,"val":5},"ln":56,"g":4,"note":"5 follows 2"},
+    {"t":"set","s":"list","at":["n3","next"],"from":null,"to":{"$":"n4"},"ln":56,"g":4},
+    {"t":"set","s":"list","at":["n5"],"from":null,"to":{"next":null,"val":2},"ln":56,"g":5,"note":"2 follows 5"},
+    {"t":"set","s":"list","at":["n4","next"],"from":null,"to":{"$":"n5"},"ln":56,"g":5},
+    {"t":"set","s":"list","at":["$refs","head"],"from":null,"to":{"$":"n0"},"ln":58},
+    {"t":"set","s":"list","at":["$refs","cur"],"from":null,"to":{"$":"n0"},"ln":87,"g":6,"note":"1 goes on the low chain"},
+    {"t":"set","s":"list","at":["$refs","lo"],"from":null,"to":{"$":"n0"},"expr":"1 \u003c 3","deps":[{"s":"list","at":["n0","val"],"v":1}],"ln":92,"g":6},
+    {"t":"set","s":"list","at":["$refs","loTail"],"from":null,"to":{"$":"n0"},"ln":100,"g":6},
+    {"t":"set","s":"list","at":["$refs","cur"],"from":{"$":"n0"},"to":{"$":"n1"},"ln":87,"g":7,"note":"4 goes on the high chain"},
+    {"t":"set","s":"list","at":["$refs","hi"],"from":null,"to":{"$":"n1"},"expr":"4 \u003e= 3","deps":[{"s":"list","at":["n1","val"],"v":4}],"ln":92,"g":7},
+    {"t":"set","s":"list","at":["$refs","hiTail"],"from":null,"to":{"$":"n1"},"ln":100,"g":7},
+    {"t":"set","s":"list","at":["$refs","cur"],"from":{"$":"n1"},"to":{"$":"n2"},"ln":87,"g":8,"note":"3 goes on the high chain"},
+    {"t":"set","s":"list","at":["$refs","hiTail"],"from":{"$":"n1"},"to":{"$":"n2"},"ln":100,"g":8},
+    {"t":"set","s":"list","at":["$refs","cur"],"from":{"$":"n2"},"to":{"$":"n3"},"ln":87,"g":9,"note":"2 goes on the low chain"},
+    {"t":"set","s":"list","at":["n0","next"],"from":{"$":"n1"},"to":{"$":"n3"},"expr":"2 \u003c 3","deps":[{"s":"list","at":["n3","val"],"v":2}],"ln":96,"g":9},
+    {"t":"set","s":"list","at":["$refs","loTail"],"from":{"$":"n0"},"to":{"$":"n3"},"ln":100,"g":9},
+    {"t":"set","s":"list","at":["$refs","cur"],"from":{"$":"n3"},"to":{"$":"n4"},"ln":87,"g":10,"note":"5 goes on the high chain"},
+    {"t":"set","s":"list","at":["n2","next"],"from":{"$":"n3"},"to":{"$":"n4"},"expr":"5 \u003e= 3","deps":[{"s":"list","at":["n4","val"],"v":5}],"ln":96,"g":10},
+    {"t":"set","s":"list","at":["$refs","hiTail"],"from":{"$":"n2"},"to":{"$":"n4"},"ln":100,"g":10},
+    {"t":"set","s":"list","at":["$refs","cur"],"from":{"$":"n4"},"to":{"$":"n5"},"ln":87,"g":11,"note":"2 goes on the low chain"},
+    {"t":"set","s":"list","at":["n3","next"],"from":{"$":"n4"},"to":{"$":"n5"},"expr":"2 \u003c 3","deps":[{"s":"list","at":["n5","val"],"v":2}],"ln":96,"g":11},
+    {"t":"set","s":"list","at":["$refs","loTail"],"from":{"$":"n3"},"to":{"$":"n5"},"ln":100,"g":11},
+    {"t":"set","s":"list","at":["n4","next"],"from":{"$":"n5"},"to":null,"ln":128,"g":12,"note":"join the two chains, and terminate the second one"},
+    {"t":"set","s":"list","at":["n5","next"],"from":null,"to":{"$":"n1"},"ln":131,"g":12},
+    {"t":"set","s":"list","at":["$refs","cur"],"from":{"$":"n5"},"to":null,"ln":134,"g":12},
+    {"t":"set","s":"list","at":["$refs","loTail"],"from":{"$":"n5"},"to":null,"ln":135,"g":12},
+    {"t":"set","s":"list","at":["$refs","hiTail"],"from":{"$":"n4"},"to":null,"ln":136,"g":12}
+  ]
+}

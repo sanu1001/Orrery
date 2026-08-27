@@ -44,6 +44,8 @@ func binaryTree(refs ...string) trace.Schema {
 // stable when a later token changes. RENDERERS/TREE.md 2.1.
 func nodeID(i int) string { return "n" + strconv.Itoa(i) }
 
+func itoa(n int) string { return strconv.Itoa(n) }
+
 // buildLeetCode builds a binary tree from level-order tokens, emitting the
 // writes as it goes, and returns the root's id ("" for an empty tree).
 //
@@ -113,4 +115,30 @@ func val(n *tracer.Nodes, id string) int {
 		panic("trees: node " + id + " has a non-numeric val")
 	}
 	return int(f)
+}
+
+// countNodes is how many tokens are real nodes. The array panes are sized from
+// it, and sizing from len(toks) instead would leave a trailing run of empty
+// cells for every null in the input.
+func countNodes(toks []any) int {
+	n := 0
+	for _, t := range toks {
+		if t != nil {
+			n++
+		}
+	}
+	return n
+}
+
+// children returns a node's live children in draw order, skipping the empty
+// slots. Every walk in this package wants exactly this and none of them wants
+// to spell out the nil checks.
+func children(n *tracer.Nodes, id string) []string {
+	var out []string
+	for _, f := range [2]string{"left", "right"} {
+		if c := n.Ptr(id, f); c != "" {
+			out = append(out, c)
+		}
+	}
+	return out
 }

@@ -56,7 +56,7 @@ internal/trace/     THE FORMAT. stdlib-only — deps_test.go enforces that.
 internal/tracer/    The recording API algorithms write against.
 internal/replay/    The Go player. Exists to test the tracer and to prove the
                     JS player correct. Not a production path.
-internal/algos/     24 algorithms. One file each, //go:embed of itself.
+internal/algos/     32 algorithms. One file each, //go:embed of itself.
 internal/gen/       Generate + Catalog. Shared by the CLI, the server and the
                     build, so all three emit byte-identical output for the
                     same inputs — which is what makes goldens mean anything.
@@ -172,7 +172,19 @@ subset that exists now. That is why nothing ever moves. If you find yourself
 laying out from `state`, you have reintroduced the reflow bug that makes most
 recursion-tree visualizers unwatchable.
 
-### 10. Tree walks must be iterative
+### 10. The state hash walks UTF-8 BYTES, not code units
+Indexing a Go string yields bytes, so `State.Hash` runs FNV over the UTF-8
+encoding. The JS twin used `charCodeAt(i) & 0xff`, which agrees with that for
+ASCII and for nothing else — one arrow glyph inside one trace value
+desynchronised the two players from that step onward, and `make conformance`
+reported a hash mismatch at a step number with no hint as to the cause.
+
+`web/src/player/state.js` now encodes through `TextEncoder`. `bellman-ford`
+writes non-ASCII edge labels on purpose so the conformance suite keeps checking
+it, and `player.test.mjs` has a direct regression against a hand-rolled FNV over
+an explicit byte list.
+
+### 11. Tree walks must be iterative
 A recursive first walk blows the JS stack on an unmemoized fib, whose call tree
 has a spine thousands deep. Both walks in `tidyTree.js` use explicit stacks, and
 `tidytree.test.mjs` tests a 5,000-deep spine.
@@ -279,9 +291,10 @@ same statement whatever shape it makes.
 
 Stage A is built and green, plus C6 (the trace as a downloadable/droppable
 file), B1 + B2 + B3 (tree, linked-list and graph renderers), C1/C2 (breakpoints
-and watches), B4 (the array/tree duality) and C3 (measured complexity). 24
-algorithms, 7 renderer families plus the call stack pane, CLI including a
-terminal player, Go↔JS conformance over 954 step hashes.
+and watches), B4 (the array/tree duality), B6 (fifteen more algorithms) and C3
+(measured complexity). 32 algorithms, 7 renderer families plus the call stack
+pane, CLI including a terminal player, Go↔JS conformance over 1,172 step
+hashes.
 
 Every `Spec` now declares `Complexity` and `Sweep`. `orrery complexity` runs
 each algorithm across its sweep range at build time; `lib/complexity.js` fits a

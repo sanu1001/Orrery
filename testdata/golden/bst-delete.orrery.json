@@ -1,0 +1,73 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "bst-delete",
+    "title": "BST Delete",
+    "lang": "go",
+    "input": {
+      "remove": 3,
+      "values": [
+        8,
+        3,
+        10,
+        1,
+        6,
+        14,
+        4,
+        7,
+        13
+      ]
+    },
+    "source": {
+      "path": "internal/algos/trees/bstdelete.go",
+      "text": "package trees\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed bstdelete.go\nvar bstDeleteSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"bst-delete\",\n\t\tTitle:  \"BST Delete\",\n\t\tFamily: \"Trees\",\n\t\tBlurb:  \"Three cases: a leaf goes, one child is promoted, and two children need the successor.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{Name: \"values\", Kind: \"intList\", Max: 24,\n\t\t\t\tDefault: []int{8, 3, 10, 1, 6, 14, 4, 7, 13},\n\t\t\t\tHelp:    \"inserted in this order to build the tree\"},\n\t\t\t{Name: \"remove\", Kind: \"int\", Min: -999, Max: 999, Default: 3,\n\t\t\t\tHelp: \"the value to delete\"},\n\t\t},\n\t\tDefaults: algos.Args{\n\t\t\t\"values\": []int{8, 3, 10, 1, 6, 14, 4, 7, 13}, \"remove\": 3,\n\t\t},\n\t\tSource:     trace.Source{Path: \"internal/algos/trees/bstdelete.go\", Text: bstDeleteSrc, FirstLine: 1},\n\t\tTags:       []string{\"tree\", \"bst\", \"pointers\"},\n\t\tComplexity: \"O(n)\",\n\t\tSweep:      []string{\"values\"},\n\t\tRun:        runBSTDelete,\n\t})\n}\n\n// DELETE IS THE ALGORITHM THAT NEEDS A PICTURE, and insert is the one that does\n// not. Insert has one case: walk down, hang a node off an empty slot. Delete\n// has three, the third is the only interesting one, and the third is the reason\n// people get it wrong.\n//\n// Two children means the node's VALUE has to go while its position stays --\n// there is no way to unhook it without orphaning a subtree. So the in-order\n// successor's value is copied up and the successor, which by construction has\n// at most one child, is deleted instead. Watching that copy happen and then the\n// leftover node vanish from the bottom of the right subtree is the whole\n// lesson, and it is very hard to follow in prose.\n//\n// The successor gets its own named pointer so the two positions are both on\n// screen at once. That is what `refs` are for: a second place the algorithm is\n// looking, visible at the same time as the first.\nfunc runBSTDelete(tr *tracer.Tracer, args algos.Args) error {\n\tvals := args.Ints(\"values\")\n\ttarget := args.Int(\"remove\")\n\n\tt := tr.Nodes(\"tree\", binaryTree(\"root\", \"cur\", \"succ\"))\n\troot := insertAll(tr, t, vals)\n\ttr.View(\"tree\", \"tree\", 0, tracer.Title(\"binary search tree\"), tracer.StartHere(tr))\n\n\tif root == \"\" {\n\t\treturn tr.Err()\n\t}\n\n\t// The descent, and the parent kept alongside it. A BST node does not know\n\t// its parent, so the search has to carry it -- and that is why deleting from\n\t// a tree is fiddlier than it looks from a picture.\n\tcur, parent, side := root, \"\", \"\"\n\tfor cur != \"\" {\n\t\tcv := val(t, cur)\n\t\tt.Ref(\"cur\", cur).\n\t\t\tBecause(\"compare %d with %d\", target, cv).\n\t\t\tFrom(t.Cell(cur, \"val\"))\n\t\tif cv == target {\n\t\t\tbreak\n\t\t}\n\t\tside = \"right\"\n\t\tif target \u003c cv {\n\t\t\tside = \"left\"\n\t\t}\n\t\tparent, cur = cur, t.Ptr(cur, side)\n\t}\n\n\tif cur == \"\" {\n\t\tt.Ref(\"cur\", \"\").Note(\"%d is not in the tree -- nothing to delete\", target)\n\t\treturn tr.Err()\n\t}\n\n\tl, r := t.Ptr(cur, \"left\"), t.Ptr(cur, \"right\")\n\tgone := target\n\n\tif l != \"\" \u0026\u0026 r != \"\" {\n\t\t// CASE THREE. The in-order successor is the smallest value to the right:\n\t\t// one step right, then left as far as it goes.\n\t\tsp, s := cur, r\n\t\tt.Ref(\"succ\", s).Note(\"the successor is the smallest value to the right\")\n\t\tfor t.Ptr(s, \"left\") != \"\" {\n\t\t\tsp, s = s, t.Ptr(s, \"left\")\n\t\t\tt.Ref(\"succ\", s).Note(\"left again -- %d is smaller\", val(t, s))\n\t\t}\n\n\t\tsv := val(t, s)\n\t\tt.SetField(cur, \"val\", sv).\n\t\t\tBecause(\"%d is the next value up from %d\", sv, target).\n\t\t\tFrom(t.Cell(s, \"val\")).\n\t\t\tNote(\"copy %d up -- the node stays where it is, its value changes\", sv)\n\n\t\t// Which side of its own parent the successor hangs off. When the walk\n\t\t// never went left, the successor IS the right child of the node being\n\t\t// deleted, and that asymmetry is the one thing this case gets wrong when\n\t\t// it is written from memory.\n\t\tside = \"left\"\n\t\tif sp == cur {\n\t\t\tside = \"right\"\n\t\t}\n\t\t// The successor has at most one child by construction -- nothing can be\n\t\t// to its left or it would not be the smallest -- so removing it is case\n\t\t// one or case two. The two-children case never recurses twice.\n\t\tparent, cur, gone = sp, s, sv\n\t\tl, r = t.Ptr(cur, \"left\"), t.Ptr(cur, \"right\")\n\t\ttr.Group(func() {\n\t\t\tt.Ref(\"succ\", \"\")\n\t\t\tt.Ref(\"cur\", cur)\n\t\t}).Note(\"now remove the node the value came from\")\n\t}\n\n\tchild := l\n\tif child == \"\" {\n\t\tchild = r\n\t}\n\tnote := deleteNote(t, gone, child)\n\n\ttr.Group(func() {\n\t\tif parent == \"\" {\n\t\t\t// The root going means the tree gets a new one, or none at all.\n\t\t\tt.Ref(\"root\", child)\n\t\t} else {\n\t\t\tsetChild(t, parent, side, child)\n\t\t}\n\t\tt.Ref(\"cur\", \"\")\n\t\tt.Delete(cur)\n\t}).Note(\"%s\", note)\n\n\treturn tr.Err()\n}\n\n// insertAll builds the tree as a CONSTRUCTION PROLOGUE. It is the same descent\n// bst.go traces step by step, collapsed to one step per value here, because in\n// this algorithm the build is setup and the delete is the subject.\nfunc insertAll(tr *tracer.Tracer, t *tracer.Nodes, vals []int) string {\n\tln := tr.CallerLine(2)\n\troot := \"\"\n\tfor _, v := range vals {\n\t\tif root == \"\" {\n\t\t\tid, _ := t.New(trace.Record{\"val\": v})\n\t\t\troot = id\n\t\t\tt.Ref(\"root\", id).Line(ln).Note(\"%d becomes the root\", v)\n\t\t\tcontinue\n\t\t}\n\t\tcur := root\n\t\tfor {\n\t\t\tcv := val(t, cur)\n\t\t\tif v == cv {\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tfield := \"right\"\n\t\t\tif v \u003c cv {\n\t\t\t\tfield = \"left\"\n\t\t\t}\n\t\t\tnext := t.Ptr(cur, field)\n\t\t\tif next == \"\" {\n\t\t\t\tparent := cur\n\t\t\t\ttr.Group(func() {\n\t\t\t\t\tid, _ := t.New(trace.Record{\"val\": v})\n\t\t\t\t\tt.Link(parent, field, id).Line(ln)\n\t\t\t\t}).Note(\"insert %d\", v)\n\t\t\t\tbreak\n\t\t\t}\n\t\t\tcur = next\n\t\t}\n\t}\n\treturn root\n}\n\n// deleteNote is built BEFORE the group runs, because it reads the child that\n// the group is about to relink and the node it is about to delete.\nfunc deleteNote(t *tracer.Nodes, gone int, child string) string {\n\tif child == \"\" {\n\t\treturn itoa(gone) + \" is a leaf -- unhook it and it is gone\"\n\t}\n\treturn itoa(val(t, child)) + \" takes \" + itoa(gone) + \"'s place: its one child is promoted\"\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "tree",
+        "s": "tree",
+        "pane": 0,
+        "title": "binary search tree",
+        "startEvent": 19
+      }
+    ],
+    "counts": {
+      "events": 29,
+      "steps": 18,
+      "structs": 1
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"tree","kind":"nodes","fill":null,"schema":{"fields":{"left":"ptr","right":"ptr","val":"scalar"},"label":"val","order":["left","right"],"refs":["root","cur","succ"]},"ln":57},
+    {"t":"set","s":"tree","at":["n0"],"from":null,"to":{"left":null,"right":null,"val":8},"ln":155},
+    {"t":"set","s":"tree","at":["$refs","root"],"from":null,"to":{"$":"n0"},"ln":58,"note":"8 becomes the root"},
+    {"t":"set","s":"tree","at":["n1"],"from":null,"to":{"left":null,"right":null,"val":3},"ln":174,"g":1,"note":"insert 3"},
+    {"t":"set","s":"tree","at":["n0","left"],"from":null,"to":{"$":"n1"},"ln":58,"g":1},
+    {"t":"set","s":"tree","at":["n2"],"from":null,"to":{"left":null,"right":null,"val":10},"ln":174,"g":2,"note":"insert 10"},
+    {"t":"set","s":"tree","at":["n0","right"],"from":null,"to":{"$":"n2"},"ln":58,"g":2},
+    {"t":"set","s":"tree","at":["n3"],"from":null,"to":{"left":null,"right":null,"val":1},"ln":174,"g":3,"note":"insert 1"},
+    {"t":"set","s":"tree","at":["n1","left"],"from":null,"to":{"$":"n3"},"ln":58,"g":3},
+    {"t":"set","s":"tree","at":["n4"],"from":null,"to":{"left":null,"right":null,"val":6},"ln":174,"g":4,"note":"insert 6"},
+    {"t":"set","s":"tree","at":["n1","right"],"from":null,"to":{"$":"n4"},"ln":58,"g":4},
+    {"t":"set","s":"tree","at":["n5"],"from":null,"to":{"left":null,"right":null,"val":14},"ln":174,"g":5,"note":"insert 14"},
+    {"t":"set","s":"tree","at":["n2","right"],"from":null,"to":{"$":"n5"},"ln":58,"g":5},
+    {"t":"set","s":"tree","at":["n6"],"from":null,"to":{"left":null,"right":null,"val":4},"ln":174,"g":6,"note":"insert 4"},
+    {"t":"set","s":"tree","at":["n4","left"],"from":null,"to":{"$":"n6"},"ln":58,"g":6},
+    {"t":"set","s":"tree","at":["n7"],"from":null,"to":{"left":null,"right":null,"val":7},"ln":174,"g":7,"note":"insert 7"},
+    {"t":"set","s":"tree","at":["n4","right"],"from":null,"to":{"$":"n7"},"ln":58,"g":7},
+    {"t":"set","s":"tree","at":["n8"],"from":null,"to":{"left":null,"right":null,"val":13},"ln":174,"g":8,"note":"insert 13"},
+    {"t":"set","s":"tree","at":["n5","left"],"from":null,"to":{"$":"n8"},"ln":58,"g":8},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":null,"to":{"$":"n0"},"expr":"compare 3 with 8","deps":[{"s":"tree","at":["n0","val"],"v":8}],"ln":71},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n0"},"to":{"$":"n1"},"expr":"compare 3 with 3","deps":[{"s":"tree","at":["n1","val"],"v":3}],"ln":71},
+    {"t":"set","s":"tree","at":["$refs","succ"],"from":null,"to":{"$":"n4"},"ln":96,"note":"the successor is the smallest value to the right"},
+    {"t":"set","s":"tree","at":["$refs","succ"],"from":{"$":"n4"},"to":{"$":"n6"},"ln":99,"note":"left again -- 4 is smaller"},
+    {"t":"set","s":"tree","at":["n1","val"],"from":3,"to":4,"expr":"4 is the next value up from 3","deps":[{"s":"tree","at":["n6","val"],"v":4}],"ln":103,"note":"copy 4 up -- the node stays where it is, its value changes"},
+    {"t":"set","s":"tree","at":["$refs","succ"],"from":{"$":"n6"},"to":null,"ln":122,"g":9,"note":"now remove the node the value came from"},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n1"},"to":{"$":"n6"},"ln":123,"g":9},
+    {"t":"set","s":"tree","at":["n4","left"],"from":{"$":"n6"},"to":null,"g":10,"note":"4 is a leaf -- unhook it and it is gone"},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n6"},"to":null,"ln":140,"g":10},
+    {"t":"set","s":"tree","at":["n6"],"from":{"left":null,"right":null,"val":4},"to":null,"ln":141,"g":10}
+  ]
+}

@@ -1,0 +1,84 @@
+{
+  "v": 1,
+  "meta": {
+    "algo": "tree-invert",
+    "title": "Invert a Binary Tree",
+    "lang": "go",
+    "input": {
+      "tree": [
+        4,
+        2,
+        7,
+        1,
+        3,
+        6,
+        9
+      ]
+    },
+    "source": {
+      "path": "internal/algos/trees/invert.go",
+      "text": "package trees\n\nimport (\n\t_ \"embed\"\n\n\t\"github.com/sanu1001/orrery/internal/algos\"\n\t\"github.com/sanu1001/orrery/internal/trace\"\n\t\"github.com/sanu1001/orrery/internal/tracer\"\n)\n\n//go:embed invert.go\nvar invertSrc string\n\nfunc init() {\n\talgos.Register(algos.Spec{\n\t\tID:     \"tree-invert\",\n\t\tTitle:  \"Invert a Binary Tree\",\n\t\tFamily: \"Trees\",\n\t\tBlurb:  \"Swap every node's children. Four lines, and the picture turns inside out.\",\n\t\tInputs: []algos.InputSpec{\n\t\t\t{\n\t\t\t\tName: \"tree\", Kind: \"tree\", Notation: \"leetcode\", Max: 63,\n\t\t\t\tDefault: []any{4, 2, 7, 1, 3, 6, 9},\n\t\t\t\tHelp:    \"LeetCode level order, e.g. [1,2,null,3,4] — nulls have no children of their own\",\n\t\t\t},\n\t\t},\n\t\tDefaults:   algos.Args{\"tree\": []any{4, 2, 7, 1, 3, 6, 9}},\n\t\tSource:     trace.Source{Path: \"internal/algos/trees/invert.go\", Text: invertSrc, FirstLine: 1},\n\t\tTags:       []string{\"tree\", \"recursion\", \"pointers\"},\n\t\tComplexity: \"O(n)\",\n\t\tSweep:      []string{\"tree\"},\n\t\tRun:        runInvert,\n\t})\n}\n\n// THIS IS THE TREE'S ANSWER TO list-reverse, and it makes the same point about\n// layout from the opposite direction.\n//\n// Reversing a list rewrites pointers and moves no boxes, because the layout\n// comes from creation order. Inverting a tree rewrites pointers and DOES move\n// nodes, because a tree's layout comes from the shape the pointers make -- and\n// that is right: an inverted tree genuinely is a different picture, and drawing\n// it in the old positions would be the lie.\n//\n// RENDERERS/TREE.md 3.1 is where that lives. The layout is reused while the\n// current edges remain a SUBSET of the final shape, and recomputed the moment\n// they are not. A swap is not a subset, so every swap re-lays out and the\n// affected subtree slides across -- which is exactly the movement the algorithm\n// performs on the data.\n//\n// Recursive, with call and ret events, so the call-stack pane shows the descent\n// and the unwinding. That is the whole difference between this and an iterative\n// version, and it is worth showing once.\nfunc runInvert(tr *tracer.Tracer, args algos.Args) error {\n\ttoks := args.Tokens(\"tree\")\n\n\tt := tr.Nodes(\"tree\", binaryTree(\"root\", \"cur\"))\n\troot := buildLeetCode(tr, t, toks)\n\tif root != \"\" {\n\t\tt.Ref(\"root\", root)\n\t}\n\n\ttr.View(\"tree\", \"tree\", 0, tracer.Title(\"tree\"), tracer.StartHere(tr))\n\n\tif root == \"\" {\n\t\treturn tr.Err()\n\t}\n\n\tvar invert func(id string)\n\tinvert = func(id string) {\n\t\tif id == \"\" {\n\t\t\treturn\n\t\t}\n\t\tv := val(t, id)\n\t\ttr.Call(\"invert\", tracer.A(\"node\", v))\n\t\tt.Ref(\"cur\", id)\n\n\t\tl, r := t.Ptr(id, \"left\"), t.Ptr(id, \"right\")\n\t\tif l != \"\" || r != \"\" {\n\t\t\t// BOTH WRITES IN ONE STEP. Left to separate steps there is a frame in\n\t\t\t// which the same child is on both sides -- the tree renderer draws\n\t\t\t// both edges, correctly, and the picture shows a node with two\n\t\t\t// parents, which reads as the bug it is not.\n\t\t\ttr.Group(func() {\n\t\t\t\tsetChild(t, id, \"left\", r)\n\t\t\t\tsetChild(t, id, \"right\", l)\n\t\t\t}).Note(\"%s\", swapNote(t, v, l, r))\n\t\t}\n\n\t\tinvert(l)\n\t\tinvert(r)\n\t\ttr.Return(v)\n\t}\n\tinvert(root)\n\n\tt.Ref(\"cur\", \"\").Note(\"every node has had its children swapped\")\n\treturn tr.Err()\n}\n\n// setChild links or unlinks, whichever the target calls for. Unlink is not a\n// special case in the format -- it is a write of null -- but it is a special\n// case in the API, so this hides the branch rather than repeating it.\nfunc setChild(t *tracer.Nodes, id, field, target string) {\n\tif target == \"\" {\n\t\tt.Unlink(id, field)\n\t\treturn\n\t}\n\tt.Link(id, field, target)\n}\n\nfunc swapNote(t *tracer.Nodes, v int, l, r string) string {\n\tswitch {\n\tcase l != \"\" \u0026\u0026 r != \"\":\n\t\treturn itoa(v) + \"'s children swap sides: \" + itoa(val(t, l)) + \" and \" + itoa(val(t, r))\n\tcase l != \"\":\n\t\treturn itoa(val(t, l)) + \" moves from \" + itoa(v) + \"'s left to its right\"\n\tdefault:\n\t\treturn itoa(val(t, r)) + \" moves from \" + itoa(v) + \"'s right to its left\"\n\t}\n}\n",
+      "firstLine": 1
+    },
+    "views": [
+      {
+        "family": "tree",
+        "s": "tree",
+        "pane": 0,
+        "title": "tree",
+        "startEvent": 15
+      }
+    ],
+    "counts": {
+      "events": 43,
+      "steps": 34,
+      "structs": 1
+    },
+    "engine": "orrery/0.1.0"
+  },
+  "events": [
+    {"t":"init","s":"tree","kind":"nodes","fill":null,"schema":{"fields":{"left":"ptr","right":"ptr","val":"scalar"},"label":"val","order":["left","right"],"refs":["root","cur"]},"ln":57},
+    {"t":"set","s":"tree","at":["n0"],"from":null,"to":{"left":null,"right":null,"val":4},"ln":58,"note":"root is 4"},
+    {"t":"set","s":"tree","at":["n1"],"from":null,"to":{"left":null,"right":null,"val":2},"ln":58,"g":1,"note":"2 is the left child of 4"},
+    {"t":"set","s":"tree","at":["n0","left"],"from":null,"to":{"$":"n1"},"ln":58,"g":1},
+    {"t":"set","s":"tree","at":["n2"],"from":null,"to":{"left":null,"right":null,"val":7},"ln":58,"g":2,"note":"7 is the right child of 4"},
+    {"t":"set","s":"tree","at":["n0","right"],"from":null,"to":{"$":"n2"},"ln":58,"g":2},
+    {"t":"set","s":"tree","at":["n3"],"from":null,"to":{"left":null,"right":null,"val":1},"ln":58,"g":3,"note":"1 is the left child of 2"},
+    {"t":"set","s":"tree","at":["n1","left"],"from":null,"to":{"$":"n3"},"ln":58,"g":3},
+    {"t":"set","s":"tree","at":["n4"],"from":null,"to":{"left":null,"right":null,"val":3},"ln":58,"g":4,"note":"3 is the right child of 2"},
+    {"t":"set","s":"tree","at":["n1","right"],"from":null,"to":{"$":"n4"},"ln":58,"g":4},
+    {"t":"set","s":"tree","at":["n5"],"from":null,"to":{"left":null,"right":null,"val":6},"ln":58,"g":5,"note":"6 is the left child of 7"},
+    {"t":"set","s":"tree","at":["n2","left"],"from":null,"to":{"$":"n5"},"ln":58,"g":5},
+    {"t":"set","s":"tree","at":["n6"],"from":null,"to":{"left":null,"right":null,"val":9},"ln":58,"g":6,"note":"9 is the right child of 7"},
+    {"t":"set","s":"tree","at":["n2","right"],"from":null,"to":{"$":"n6"},"ln":58,"g":6},
+    {"t":"set","s":"tree","at":["$refs","root"],"from":null,"to":{"$":"n0"},"ln":60},
+    {"t":"call","fn":"invert","args":[{"n":"node","v":4}],"ln":75},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":null,"to":{"$":"n0"},"ln":76},
+    {"t":"set","s":"tree","at":["n0","left"],"from":{"$":"n1"},"to":{"$":"n2"},"ln":108,"g":7,"note":"4's children swap sides: 2 and 7"},
+    {"t":"set","s":"tree","at":["n0","right"],"from":{"$":"n2"},"to":{"$":"n1"},"ln":108,"g":7},
+    {"t":"call","fn":"invert","args":[{"n":"node","v":2}],"ln":75},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n0"},"to":{"$":"n1"},"ln":76},
+    {"t":"set","s":"tree","at":["n1","left"],"from":{"$":"n3"},"to":{"$":"n4"},"ln":108,"g":8,"note":"2's children swap sides: 1 and 3"},
+    {"t":"set","s":"tree","at":["n1","right"],"from":{"$":"n4"},"to":{"$":"n3"},"ln":108,"g":8},
+    {"t":"call","fn":"invert","args":[{"n":"node","v":1}],"ln":75},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n1"},"to":{"$":"n3"},"ln":76},
+    {"t":"ret","v":1,"ln":92},
+    {"t":"call","fn":"invert","args":[{"n":"node","v":3}],"ln":75},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n3"},"to":{"$":"n4"},"ln":76},
+    {"t":"ret","v":3,"ln":92},
+    {"t":"ret","v":2,"ln":92},
+    {"t":"call","fn":"invert","args":[{"n":"node","v":7}],"ln":75},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n4"},"to":{"$":"n2"},"ln":76},
+    {"t":"set","s":"tree","at":["n2","left"],"from":{"$":"n5"},"to":{"$":"n6"},"ln":108,"g":9,"note":"7's children swap sides: 6 and 9"},
+    {"t":"set","s":"tree","at":["n2","right"],"from":{"$":"n6"},"to":{"$":"n5"},"ln":108,"g":9},
+    {"t":"call","fn":"invert","args":[{"n":"node","v":6}],"ln":75},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n2"},"to":{"$":"n5"},"ln":76},
+    {"t":"ret","v":6,"ln":92},
+    {"t":"call","fn":"invert","args":[{"n":"node","v":9}],"ln":75},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n5"},"to":{"$":"n6"},"ln":76},
+    {"t":"ret","v":9,"ln":92},
+    {"t":"ret","v":7,"ln":92},
+    {"t":"ret","v":4,"ln":92},
+    {"t":"set","s":"tree","at":["$refs","cur"],"from":{"$":"n6"},"to":null,"ln":96,"note":"every node has had its children swapped"}
+  ]
+}

@@ -179,6 +179,14 @@ func (g *Graph) EdgeCell(u, v, field string) Cell {
 	return Cell{S: g.name, At: at, V: g.t.state.Get(g.name, at)}
 }
 
+// RefTarget reads a named pointer as a node id, or "". The twin of Nodes.Ref
+// Target, and it exists for the same reason: an algorithm that wants to avoid
+// rewriting a pointer with the value it already holds has to be able to ask.
+func (g *Graph) RefTarget(name string) string {
+	r, _ := trace.AsRef(g.t.state.Get(g.name, trace.Path{trace.Key(trace.NSRefs), trace.Key(name)}))
+	return r
+}
+
 // Ref moves a named pointer, e.g. the node currently being settled.
 func (g *Graph) Ref(name, node string) *Ev {
 	at := trace.Path{trace.Key(trace.NSRefs), trace.Key(name)}

@@ -344,3 +344,16 @@ func look(tr *tracer.Tracer, via *tracer.Map, v, u string) *tracer.Ev {
 	// that examines an edge. Trap 7.
 	return via.Set(v, u).Lvl(1).Line(tr.CallerLine(2))
 }
+
+// gref moves a graph pointer only when it would actually change.
+//
+// Bellman-Ford walks a fixed edge list rather than a frontier, so consecutive
+// edges often share a source -- and rewriting the cursor with the node it
+// already holds is check V11 and a step in which the picture does not move.
+// The line is stamped because the write now originates in this file. Trap 7.
+func gref(tr *tracer.Tracer, g *tracer.Graph, name, node string) *tracer.Ev {
+	if g.RefTarget(name) == node {
+		return nil
+	}
+	return g.Ref(name, node).Line(tr.CallerLine(2))
+}

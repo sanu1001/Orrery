@@ -28,6 +28,10 @@ const NS_EDGES = '$edges';
 
 const NODE_KINDS = new Set(['nodes', 'graph']);
 
+/** Module-level, because hash() calls write() once per address and a fresh
+ *  encoder per call would allocate through a whole conformance run. */
+const UTF8 = new TextEncoder();
+
 export class Struct {
   /** @param {object} init the init event */
   constructor(init) {
@@ -264,6 +268,17 @@ export class State {
   /**
    * FNV-1a over the sorted address list plus the call stack.
    * Must produce the same 64-bit value as trace.State.Hash in Go.
+   *
+   * OVER UTF-8 BYTES, NOT CODE UNITS, and that distinction is a cross-language
+   * contract as real as addrKey. Indexing a Go string yields bytes, so Go hashes
+   * the UTF-8 encoding; `charCodeAt(i) & 0xff` yields one byte per UTF-16 code
+   * unit, which agrees with that for ASCII and for nothing else. A single
+   * arrow glyph inside one trace value made the two players disagree from that
+   * step onward, and `make conformance` reported it as a hash mismatch with no
+   * hint as to the cause -- trap 2 all over again, in a different disguise.
+   *
+   * bellman-ford writes non-ASCII edge labels on purpose so the conformance
+   * suite keeps checking this.
    * @returns {bigint}
    */
   hash() {
@@ -271,8 +286,9 @@ export class State {
     const PRIME = 1099511628211n;
     let h = 14695981039346656037n;
     const write = (str) => {
-      for (let i = 0; i < str.length; i++) {
-        h = (h ^ BigInt(str.charCodeAt(i) & 0xff)) & MASK;
+      const bytes = UTF8.encode(str);
+      for (let i = 0; i < bytes.length; i++) {
+        h = (h ^ BigInt(bytes[i])) & MASK;
         h = (h * PRIME) & MASK;
       }
       h = (h * PRIME) & MASK; // the trailing 0x00 separator
